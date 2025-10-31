@@ -1,4 +1,4 @@
 class Config:
-    SECRET_KEY = 'your_secret_key_here'
-    SQLALCHEMY_DATABASE_URI = 'postgresql://postgres:[YOUR_PASSWORD]@db.pavocfhmigmdzrzxoiio.supabase.co:5432/postgres'
+    SECRET_KEY = 'cuvwiN-zosmob-8wonzu'
+    SQLALCHEMY_DATABASE_URI = 'postgresql://postgres:cuvwiN-zosmob-8wonzu@db.pavocfhmigmdzrzxoiio.supabase.co:5432/postgres'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
