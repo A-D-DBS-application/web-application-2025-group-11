@@ -1,0 +1,7 @@
+<!-- templates/add_listing.html -->
+<h1>Add Listing</h1>
+<form method="post">
+    Listing Name: <input type="text" name="listing_name" required><br>
+    Price: <input type="number" step="0.01" name="price" required><br>
+    <input type="submit" value="Add Listing">
+</form>
