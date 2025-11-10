@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="hero-section">
+    <div class="container hero-content">
+        <div class="hero-text">
+            <h1>Welkom bij Bakkerij Oewist — waar geur, smaak en gezelligheid samenkomen!</h1>
+            <p>In het hart van Knesselaere vind je Bakkerij Oewist, een plek
+                waar elke dag begint met de geur van versgebakken
+                brood, krokante koffiekoeken en ambachtelijke taarten.
+                Onze bakkers werken met pure ingrediënten, een flinke
+                portie liefde en een vleugje Vlaamse gezelligheid. Of je 
+                nu langskomt voor een knapperig stokbrood, een zachte sandwich
+                of een zoete traktatie bij de koffie -
+                bij Oewist proef je de echte smaak van ambacht.
+            </p>
+            
+            <div class="alert-box">
+                <span class="alert-icon">!</span>
+                <p><strong>bestel voor 17u00</strong> om je bestelling vanaf morgen op te halen</p>
+            </div>
+        </div>
+        <div class="hero-image">
+            <img src="{{ url_for('static', filename='img/brood-foto.jpg') }}" alt="Vers brood">
+        </div>
+    </div>
+</section>
+<section class="container filter-section">
+    <h2>Welk brood zoek je ?</h2>
+    <div class="filter-buttons">
+        <button class="filter-btn active">alles</button>
+        <button class="filter-btn">brood</button>
+        <button class="filter-btn">pistoles</button>
+        <button class="filter-btn">koffiekoeken</button>
+    </div>
+</section>
+
+<section class="container product-section">
+    <div class="product-grid">
+        {% for product in products %}
+            <article class="product-card">
+                <div class="product-image">
+                    <img src="{{ url_for('static', filename='img/' + product.image_url) }}" alt="{{ product.name }}">
+                </div>
+                <div class="product-info">
+                    <h3>{{ product.name }}</h3>
+                    <p>{{ product.description }}</p>
+                    <span class="price">€ {{ product.price }}</span>
+                </div>
+            </article>
+        {% else %}
+            <p>Er zijn nog geen producten gevonden.</p>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

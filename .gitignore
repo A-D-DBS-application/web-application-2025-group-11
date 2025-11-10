@@ -1,0 +1,12 @@
+# Virtuele omgeving (NOOIT pushen!)
+venv/
+
+# Python tijdelijke bestanden
+__pycache__/
+*.py[cod]
+
+# Omgevingsvariabelen (als je die later gebruikt)
+.env
+
+# VS Code instellingen (optioneel, vaak handig om lokaal te houden)
+.vscode/

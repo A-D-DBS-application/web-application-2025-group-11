@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container" style="max-width: 400px; margin-top: 50px;">
+    <h2>Maak een account aan</h2>
+    
+    <form method="POST" action="{{ url_for('main.register') }}">
+        <div style="margin-bottom: 15px;">
+            <label for="full_name">Volledige Naam:</label><br>
+            <input type="text" id="full_name" name="full_name" required style="width: 100%; padding: 8px;">
+        </div>
+
+        <div style="margin-bottom: 15px;">
+            <label for="email">E-mailadres:</label><br>
+            <input type="email" id="email" name="email" required style="width: 100%; padding: 8px;">
+        </div>
+
+        <div style="margin-bottom: 20px;">
+            <label for="password">Wachtwoord:</label><br>
+            <input type="password" id="password" name="password" required style="width: 100%; padding: 8px;">
+        </div>
+
+        <button type="submit" style="background-color: var(--primary-green); color: white; padding: 10px 20px; border: none; cursor: pointer;">
+            Registreren
+        </button>
+    </form>
+
+    <p>Heb je al een account? <a href="/login">Log hier in</a>.</p>
+</div>
+{% endblock %}

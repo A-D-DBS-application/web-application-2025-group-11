@@ -1,0 +1,252 @@
+/* Basis instellingen */
+:root {
+    --primary-green: #553f0f; /* De bruine kleur van je header */
+    --bg-light: #ffffff;      /* De lichte achtergrondkleur */
+    --text-dark: #333;
+    --alert-red: #D32F2F;
+}
+
+body {
+    margin: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* Kies een font dat lijkt op je ontwerp */
+    background-color: var(--bg-light);
+    color: var(--text-dark);
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+/* Header Styling */
+.main-header {
+    background-color: var(--primary-green);
+    padding: 15px 0;
+    color: white;
+}
+
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* De container (de link) om het logo heen */
+.logo {
+    background-color: white; /* Maakt het witte vierkant */
+    display: flex;           /* Zorgt dat het logo netjes gecentreerd staat */
+    align-items: center;
+    justify-content: center;
+    padding: 10px;           /* Ruimte tussen het logo en de rand van het witte vlak */
+    border-radius: 8px;      /* Optioneel: maakt de hoekjes van het witte vlak iets ronder */
+}
+
+/* Het logo zelf */
+.logo img {
+    height: 80px; /* Iets kleiner gemaakt zodat het totale vlak niet te groot wordt, pas gerust aan */
+    display: block; /* Voorkomt onverwachte witruimte onder de afbeelding */
+}
+.main-nav ul {
+    list-style: none;
+    display: flex;
+    gap: 30px;
+    margin: 0;
+    padding: 0;
+}
+
+.main-nav a {
+    color: white;
+    text-decoration: none;
+    font-weight: bold;
+    font-size: 1.1rem;
+    text-transform: uppercase; /* Zorgt voor hoofdletters zoals in je ontwerp */
+}
+
+.header-icons .icon-link {
+    font-size: 1.5rem;
+    margin-left: 20px;
+    text-decoration: none;
+}
+
+/* Hero Sectie Styling */
+.hero-section {
+    padding: 50px 0;
+    background-color: var(--bg-light); /* Zorgt dat de lichte kleur doorloopt */
+}
+
+.hero-content {
+    display: flex;
+    gap: 50px;
+    align-items: center;
+}
+
+.hero-text {
+    flex: 1; /* Neemt de helft van de ruimte in */
+}
+
+.hero-text h1 {
+    color: #2C3E50; /* Donkergroen/blauw voor de titel */
+    font-size: 2rem;
+    margin-bottom: 20px;
+}
+
+.hero-text p {
+    line-height: 1.6;
+    color: #555;
+    margin-bottom: 15px;
+}
+
+.hero-image {
+    flex: 1; /* Neemt de andere helft in */
+}
+
+.hero-image img {
+    width: 100%;
+    border-radius: 8px; /* Maakt de hoekjes iets ronder */
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+/* Alert Box Styling */
+.alert-box {
+    display: flex;
+    align-items: center;
+    margin-top: 30px;
+    color: var(--alert-red);
+}
+
+.alert-icon {
+    background-color: var(--alert-red);
+    color: white;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: bold;
+    font-size: 1.2rem;
+    margin-right: 15px;
+}
+
+/* --- FILTER SECTIE --- */
+.filter-section {
+    padding: 40px 20px 20px;
+    text-align: left;
+}
+
+.filter-section h2 {
+    font-size: 1.5rem;
+    margin-bottom: 25px;
+    color: #000;
+}
+
+.filter-buttons {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.filter-btn {
+    background: white;
+    border: 2px solid #333;
+    padding: 12px 30px;
+    font-weight: bold;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    min-width: 120px; /* Zorgt dat ze allemaal ongeveer even breed zijn */
+    text-align: center;
+}
+
+.filter-btn:hover, .filter-btn.active {
+    background: #333;
+    color: white;
+}
+
+/* --- PRODUCT ROOSTER --- */
+.product-section {
+    padding: 40px 20px;
+    border-top: 1px solid #ccc; /* Het dunne lijntje boven de producten */
+    margin-top: 40px;
+}
+
+/* Het rooster zelf: zorgt dat kaarten naast elkaar komen */
+.product-grid {
+    display: grid;
+    /*
+       Dit maakt automatisch kolommen van minimaal 250px breed.
+       Op een breed scherm passen er 4 naast elkaar, op een kleiner scherm minder.
+       '1fr' betekent dat ze de rest van de ruimte eerlijk verdelen.
+    */
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 30px; /* Ruimte tussen de kaarten */
+    align-items: stretch; /* Zorgt dat alle kaarten even hoog worden */
+}
+
+/* De individuele productkaart */
+.product-card {
+    background-color: #F9FCF0; /* Jouw beige kleur */
+    padding: 20px;
+    border-radius: 8px;        /* Iets rondere hoekjes */
+    display: flex;
+    flex-direction: column;    /* Alles netjes onder elkaar in de kaart */
+    height: 100%;              /* Vult de volledige hoogte van de grid-rij */
+    box-sizing: border-box;    /* Zorgt dat padding niet bij de breedte wordt opgeteld */
+}
+
+/* De container voor de afbeelding */
+.product-image {
+    width: 100%;
+    height: 200px;       /* VASTE HOOGTE: Cruciaal voor gelijke plaatjes! */
+    background-color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 15px;
+    overflow: hidden;    /* Knipt de foto af als hij tóch te groot is */
+    border-radius: 4px;
+}
+
+/* De afbeelding zelf */
+.product-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;   /* Vult het hele vakje, snijdt randjes af voor strak resultaat */
+    transition: transform 0.3s ease;
+}
+
+/* Optioneel: licht zoom-effect bij hoveren */
+.product-card:hover .product-image img {
+    transform: scale(1.05);
+}
+
+/* Info-gedeelte van de kaart */
+.product-info {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1; /* Neemt alle overgebleven ruimte in */
+}
+
+.product-info h3 {
+    margin: 0 0 10px 0;
+    font-size: 1.3rem;
+    color: #000;
+}
+
+.product-info p {
+    font-size: 0.95rem;
+    line-height: 1.5;
+    color: #444;
+    flex-grow: 1; /* Duwt de prijs naar de bodem van de kaart */
+    margin-bottom: 15px;
+}
+
+.price {
+    display: block;
+    text-align: right;
+    font-weight: bold;
+    font-size: 1.2rem;
+    color: #000;
+    margin-top: auto; /* Zorgt dat de prijs altijd helemaal onderaan staat */
+}
