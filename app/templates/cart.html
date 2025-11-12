@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="container" style="padding-top: 40px; padding-bottom: 40px;">
+    <h2>Jouw Winkelmandje</h2>
+
+    {% if cart_items %}
+        
+        <table style="width: 100%; margin-top: 20px; border-collapse: collapse;">
+            <thead>
+                <tr style="border-bottom: 2px solid #333;">
+                    <th style="text-align: left; padding: 8px;">Product</th>
+                    <th style="text-align: left; padding: 8px;">Aantal</th>
+                    <th style="text-align: right; padding: 8px;">Subtotaal</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in cart_items %}
+                <tr style="border-bottom: 1px solid #ddd;">
+                    <td style="padding: 8px;">{{ item.product.name }}</td>
+                    <td style="padding: 8px;">{{ item.quantity }}x</td>
+                    <td style="padding: 8px; text-align: right;">&euro; {{ item.total_price }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="cart-summary" style="margin-top: 30px; text-align: right;">
+            <h3>Totaal: &euro; {{ total_cart_price }}</h3>
+            
+            <form action="{{ url_for('main.checkout') }}" method="POST">
+                <button type="submit" style="padding: 10px 20px; font-size: 16px;">
+                    Afrekenen
+                </button>
+            </form>
+        </div>
+
+    {% else %}
+        <p style="margin-top: 20px;">Je winkelmandje is nog leeg.</p>
+        <a href="{{ url_for('main.index') }}">Begin met winkelen</a>
+    {% endif %}
+
+</section>
+
+{% endblock %}
