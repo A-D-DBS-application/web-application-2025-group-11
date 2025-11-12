@@ -1,45 +1,65 @@
 {% extends "base.html" %}
 {% block content %}
 
-<section class="container" style="padding-top: 40px; padding-bottom: 40px;">
-    <h2>Jouw Winkelmandje</h2>
+<div class="container cart-checkout-grid">
 
-    {% if cart_items %}
-        
-        <table style="width: 100%; margin-top: 20px; border-collapse: collapse;">
-            <thead>
-                <tr style="border-bottom: 2px solid #333;">
-                    <th style="text-align: left; padding: 8px;">Product</th>
-                    <th style="text-align: left; padding: 8px;">Aantal</th>
-                    <th style="text-align: right; padding: 8px;">Subtotaal</th>
-                </tr>
-            </thead>
-            <tbody>
+    <div class="cart-section">
+        <h2 style="color: #4A2D00; margin-bottom: 30px;">Mijn Winkelwagen</h2>
+
+        {% if cart_items %}
+            <div class="cart-items-list">
                 {% for item in cart_items %}
-                <tr style="border-bottom: 1px solid #ddd;">
-                    <td style="padding: 8px;">{{ item.product.name }}</td>
-                    <td style="padding: 8px;">{{ item.quantity }}x</td>
-                    <td style="padding: 8px; text-align: right;">&euro; {{ item.total_price }}</td>
-                </tr>
+                    <div class="cart-item-card" style="display: flex; align-items: center; justify-content: space-between; padding: 15px 0; border-bottom: 1px solid #ddd;">
+                        
+                        <div class="item-details" style="display: flex; align-items: center;">
+                            <img src="{{ url_for('static', filename='img/' + item.product.image_url) }}" alt="{{ item.product.name }}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 5px; margin-right: 15px;">
+                            <div>
+                                <h4 style="margin: 0; color: #5C3C00;">{{ item.product.name }}</h4>
+                                <p style="margin: 5px 0 0; color: #777; font-size: 14px;">Aantal: {{ item.quantity }}x</p>
+                            </div>
+                        </div>
+
+                        <div class="item-actions" style="display: flex; align-items: center;">
+                            <span style="font-weight: bold; color: #4A2D00; margin-right: 15px;">&euro; {{ item.total_price | round(2) }}</span>
+                            
+                            <button type="button" class="remove-from-cart-btn" data-product-id="{{ item.product.id }}" style="background: none; border: none; color: #E63946; cursor: pointer; font-size: 20px;" title="Verwijder product">
+                                &times;
+                            </button>
+                        </div>
+                    </div>
                 {% endfor %}
-            </tbody>
-        </table>
+            </div>
+        {% else %}
+            <p style="color: #777;">Je winkelwagen is leeg.</p>
+        {% endif %}
+    </div>
 
-        <div class="cart-summary" style="margin-top: 30px; text-align: right;">
-            <h3>Totaal: &euro; {{ total_cart_price }}</h3>
+    <div class="checkout-section">
+        <h2 style="color: #4A2D00; margin-bottom: 30px;">Afrekenen</h2>
+
+        <form action="{{ url_for('main.checkout') }}" method="POST">
             
-            <form action="{{ url_for('main.checkout') }}" method="POST">
-                <button type="submit" style="padding: 10px 20px; font-size: 16px;">
-                    Afrekenen
-                </button>
-            </form>
-        </div>
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label for="pickup_date" style="display: block; margin-bottom: 8px; font-weight: bold; color: #5C3C00;">Gewenste ophaaldatum:</label>
+                <input type="date" id="pickup_date" name="pickup_date" required 
+                       style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box;">
+            </div>
 
-    {% else %}
-        <p style="margin-top: 20px;">Je winkelmandje is nog leeg.</p>
-        <a href="{{ url_for('main.index') }}">Begin met winkelen</a>
-    {% endif %}
+            <div class="form-group" style="margin-bottom: 30px;">
+                <label for="remarks" style="display: block; margin-bottom: 8px; font-weight: bold; color: #5C3C00;">Opmerkingen (optioneel):</label>
+                <textarea id="remarks" name="remarks" rows="4" 
+                          style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; resize: vertical;"></textarea>
+            </div>
 
-</section>
+            <div class="total-summary" style="text-align: right; margin-bottom: 30px;">
+                <h3 style="margin: 0; color: #4A2D00;">Totaal: &euro; {{ total_cart_price | round(2) }}</h3>
+            </div>
 
+            <button type="submit" class="btn-betalen" style="width: 100%; background-color: #8B4513; color: white; padding: 15px 20px; border: none; border-radius: 5px; font-size: 18px; font-weight: bold; cursor: pointer;">
+                Betalen
+            </button>
+        </form>
+    </div>
+
+</div>
 {% endblock %}

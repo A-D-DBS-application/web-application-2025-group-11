@@ -1,6 +1,8 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from .models import Product, Profile, Order, OrderItem, db
 from . import supabase
+from decimal import Decimal
+from datetime import datetime
 
 main = Blueprint('main', __name__)
 
@@ -106,21 +108,36 @@ def logout():
 
 @main.route('/cart/add/<int:product_id>', methods=['POST'])
 def add_to_cart(product_id):
-    # 1. Haal het mandje op uit de sessie, of maak een leeg mandje (dict)
-    #    Formaat: { 'product_id': quantity, 'product_id_2': quantity }
+    
+    # 1. Haal de hoeveelheid op (gecorrigeerde, veiligere versie)
+    try:
+        # Haal de string op, met '1' als standaard
+        quantity_str = request.form.get('quantity', '1') 
+        # Probeer er een getal van te maken
+        quantity_to_add = int(quantity_str)
+        
+        # Zorg dat het minimaal 1 is
+        if quantity_to_add < 1:
+            quantity_to_add = 1
+    except (ValueError, TypeError):
+        # Vangt fouten op als iemand "abc" invult
+        quantity_to_add = 1
+    
+    # 2. Haal het mandje op uit de sessie
     cart = session.get('cart', {})
 
-    # 2. Haal de huidige hoeveelheid op (of 0) en tel er 1 bij op
+    # 3. Tel de NIEUWE hoeveelheid op bij wat er al in zit
     current_quantity = cart.get(str(product_id), 0)
-    cart[str(product_id)] = current_quantity + 1
+    cart[str(product_id)] = current_quantity + quantity_to_add
 
-    # 3. Sla het bijgewerkte mandje terug op in de sessie
+    # 4. Sla het bijgewerkte mandje terug op in de sessie
     session['cart'] = cart
-    # BELANGRIJK: Zeg Flask dat de sessie is gewijzigd (omdat we een dict *in* de sessie hebben aangepast)
     session.modified = True 
 
-    print(f"DEBUG: Mandje bijgewerkt: {session['cart']}")
-    flash(f'Product toegevoegd aan je mandje!', 'success')
+    # 5. Flash een duidelijker bericht
+    product = Product.query.get_or_404(product_id) 
+    flash(f'{quantity_to_add}x {product.name} toegevoegd aan je mandje!', 'success')
+    
     return redirect(url_for('main.index'))
 
 @main.route('/cart')
@@ -154,6 +171,26 @@ def view_cart():
                            cart_items=products_in_cart, 
                            total_cart_price=total_cart_price)
 
+# In app/routes.py
+
+@main.route('/cart/remove/<int:product_id>', methods=['POST'])
+def remove_from_cart(product_id):
+    # Haal het mandje op
+    cart = session.get('cart', {})
+    product_id_str = str(product_id) # IDs in de sessie zijn strings
+
+    # Als het product in het mandje zit, verwijder het
+    if product_id_str in cart:
+        del cart[product_id_str]
+        session['cart'] = cart
+        session.modified = True
+        flash(f'Product uit je winkelwagen verwijderd.', 'success')
+    
+    # Stuur de gebruiker terug naar de winkelwagen
+    return redirect(url_for('main.view_cart'))
+
+# In app/routes.py
+
 @main.route('/checkout', methods=['POST'])
 def checkout():
     # 1. Is de gebruiker ingelogd?
@@ -166,57 +203,69 @@ def checkout():
     if not cart_dict:
         flash('Je mandje is leeg.', 'warning')
         return redirect(url_for('main.view_cart'))
+    
+    # 3. NIEUW: Lees de extra formulier-data uit
+    pickup_date_str = request.form.get('pickup_date')
+    remarks = request.form.get('remarks')
 
     try:
+        # 4. NIEUW: Converteer de datum-string naar een Python datum-object
+        pickup_date_obj = None
+        if pickup_date_str:
+            pickup_date_obj = datetime.strptime(pickup_date_str, '%Y-%m-%d').date()
+        else:
+            # Als de 'required' in HTML faalt, vangen we het hier op
+            flash('Geen ophaaldatum geselecteerd.', 'danger')
+            return redirect(url_for('main.view_cart'))
+
         # --- We gaan de database in schrijven ---
         
-        # 3. Haal alle product-objecten op
+        # 5. Haal alle product-objecten op
         product_ids = [int(id) for id in cart_dict.keys()]
         products = Product.query.filter(Product.id.in_(product_ids)).all()
         
-        # 4. Bereken de ECHTE totaalprijs (vertrouw de sessie niet voor prijzen)
-        total_price = 0
-        products_map = {str(p.id): p for p in products} # Makkelijk opzoeken
+        # 6. Bereken de ECHTE totaalprijs
+        total_price = Decimal(0.0) # Gebruik Decimal
+        products_map = {str(p.id): p for p in products} 
         
         for product_id, quantity in cart_dict.items():
             product_price = products_map[product_id].price
             total_price += (product_price * quantity)
 
-        # 5. Maak de 'Order' (de "bon") aan
+        # 7. AANGEPAST: Maak de 'Order' aan MET de nieuwe velden
         new_order = Order(
             user_id=session['user_id'],
             total_price=total_price,
-            status='pending' # We beginnen altijd als 'pending'
+            status='pending',
+            pickup_date=pickup_date_obj,  # <-- HIER TOEGEVOEGD
+            remarks=remarks               # <-- HIER TOEGEVOEGD
         )
         db.session.add(new_order)
-        # BELANGRIJK: 'flush' om de new_order.id te krijgen van de database
-        # We 'committen' nog niet, voor het geval er iets misgaat
-        db.session.flush() 
+        db.session.flush() # Vraag de ID op
 
-        # 6. Maak de 'OrderItems' (de "regels op de bon") aan
+        # 8. Maak de 'OrderItems' aan
         for product_id, quantity in cart_dict.items():
             product = products_map[product_id]
             
             order_item = OrderItem(
-                order_id=new_order.id,      # De ID van de bon die we net maakten
+                order_id=new_order.id,      
                 product_id=product.id,
                 quantity=quantity,
-                unit_price_at_order=product.price # Sla de prijs van DIT MOMENT op
+                unit_price_at_order=product.price 
             )
             db.session.add(order_item)
 
-        # 7. Alles is gelukt! Maak het permanent.
+        # 9. Alles is gelukt! Maak het permanent.
         db.session.commit()
 
-        # 8. Maak het mandje leeg
+        # 10. Maak het mandje leeg
         session.pop('cart', None)
         session.modified = True
 
-        flash('Bestelling succesvol geplaatst!', 'success')
-        return redirect(url_for('main.index')) # Stuur naar bv. "mijn bestellingen"
+        flash('Bestelling succesvol geplaatst! Je kan ze ophalen op de gekozen datum.', 'success')
+        return redirect(url_for('main.index')) # Stuur naar de homepagina
 
     except Exception as e:
-        # 7b. Er ging iets mis. Draai ALLES terug.
         db.session.rollback()
         print(f"FOUT bij checkout: {e}")
         flash('Er ging iets mis bij het plaatsen van je bestelling.', 'danger')

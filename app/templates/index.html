@@ -46,8 +46,21 @@
                     <h3>{{ product.name }}</h3>
                     <p>{{ product.description }}</p>
                     <span>&euro; {{ product.price }}</span>
-                    <form action="{{ url_for('main.add_to_cart', product_id=product.id) }}" method="POST" style="margin-top: 10px;">
-                        <button type="submit">Bestel</button>
+                    <form action="{{ url_for('main.add_to_cart', product_id=product.id) }}" method="POST" style="margin-top: 15px;">
+                        <div class="bestel-groep" style="display: flex; align-items: center; gap: 10px; margin-top: 15px;">
+                            <div class="quantity-selector">
+                                <button type="button" class="quantity-btn minus" aria-label="Verlaag aantal">-</button>
+                                <input 
+                                    type="number" 
+                                    name="quantity" 
+                                    value="1" 
+                                    min="1"
+                                    class="quantity-input"
+                                    aria-label="Aantal">
+                                 <button type="button" class="quantity-btn plus" aria-label="Verhoog aantal">+</button>
+                            </div>
+                            <button type="submit" class="btn-bestel">Bestel</button>
+                        </div>
                     </form>
                     </div>
             </article>

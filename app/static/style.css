@@ -250,3 +250,110 @@ body {
     color: #000;
     margin-top: auto; /* Zorgt dat de prijs altijd helemaal onderaan staat */
 }
+
+/* Stijl voor de nieuwe 'Bestel' knop */
+.btn-bestel {
+    background-color: #8B4513; /* Dit is een standaard 'zadelbruin', pas de kleur gerust aan! */
+    color: white;
+    padding: 10px 16px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 14px;
+    transition: background-color 0.3s ease;
+}
+
+/* Een 'hover' effect zodat de knop reageert als je erover muist */
+.btn-bestel:hover {
+    background-color: #A0522D; /* Een iets lichtere bruintint */
+}
+
+/* Container voor de + / - knoppen en het veld */
+.quantity-selector {
+    display: flex;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    overflow: hidden; /* Zorgt dat de knoppen netjes in de ronde hoeken vallen */
+}
+
+/* De + en - knoppen */
+.quantity-btn {
+    background-color: #f4f4f4;
+    border: none;
+    padding: 0 12px;
+    cursor: pointer;
+    font-size: 18px;
+    font-weight: bold;
+    color: #333;
+}
+
+.quantity-btn:hover {
+    background-color: #e9e9e9;
+}
+
+/* Het input veld zelf */
+.quantity-input {
+    width: 50px;
+    text-align: center;
+    border: none;
+    padding: 8px 0;
+    
+    /* BELANGRIJK: Verberg de standaard pijltjes (spinners) */
+    -moz-appearance: textfield; /* Firefox */
+}
+
+.quantity-input::-webkit-outer-spin-button,
+.quantity-input::-webkit-inner-spin-button {
+    -webkit-appearance: none; /* Chrome, Safari, Edge */
+    margin: 0;
+}
+
+/* Container voor de twee kolommen op de winkelwagenpagina */
+.cart-checkout-grid {
+    display: grid;
+    /* Op grote schermen: 2/3 voor de wagen, 1/3 voor afrekenen */
+    grid-template-columns: 2fr 1fr; 
+    gap: 40px; /* Ruimte tussen de kolommen */
+    padding: 40px 0; /* Verticale padding */
+}
+
+/* Stijlen voor de 2 sectie-blokken */
+.cart-section,
+.checkout-section {
+    background-color: #F8F4F0; /* Een heel lichte, warme beige/bruin */
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05); /* Lichte schaduw */
+}
+
+/* Zorg dat de input velden en textareas een witte achtergrond hebben */
+.checkout-section input[type="date"],
+.checkout-section textarea {
+    background-color: #fff; 
+    border: 1px solid #e0e0e0;
+}
+
+/* De 'Betalen' knop in de stijl van je bakkerij */
+.btn-betalen {
+    background-color: #8B4513; /* Donkerder bruin */
+    color: white;
+    padding: 15px 20px;
+    border: none;
+    border-radius: 5px;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.btn-betalen:hover {
+    background-color: #A0522D; /* Iets lichtere bruin bij hover */
+}
+
+/* Op kleine schermen (mobiel), zet de kolommen ONDER elkaar */
+@media (max-width: 768px) {
+    .cart-checkout-grid {
+        grid-template-columns: 1fr; /* 1 kolom */
+    }
+}
