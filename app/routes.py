@@ -5,6 +5,15 @@ from decimal import Decimal
 from datetime import datetime
 from decimal import Decimal
 
+ADMIN_EMAILS = [
+    "mathisdebaene@gmail.com",
+    "emile.debourdeaudhuy@icloud.com", 
+    "roel.vanzele@telenet.be",
+    "Marie haar prive email?",
+    "Alehan zijn prive email?"
+
+]
+
 main = Blueprint('main', __name__)
 
 @main.context_processor
@@ -326,7 +335,7 @@ def admin_inventory():
     # 2. NIEUW: Is het de admin?
     current_email = session.get('user_email')
     
-    if current_email != 'mathisdebaene@gmail.com':
+    if current_email not in ADMIN_EMAILS:
         flash('Geen toegang! Alleen de beheerder mag hier komen.', 'danger')
         return redirect(url_for('main.index'))
 
@@ -342,7 +351,7 @@ def restock_ingredient():
     if 'user_id' not in session:
         return redirect(url_for('main.login'))
         
-    if session.get('user_email') != 'mathisdebaene@gmail.com':
+    if session.get('user_email') not in ADMIN_EMAILS:
         flash('Geen toegang.', 'danger')
         return redirect(url_for('main.index'))
 
