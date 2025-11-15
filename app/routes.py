@@ -83,6 +83,7 @@ def login():
             # Dit is het 'toegangsbewijs' dat Flask onthoudt zolang je browser open is.
             session['user_id'] = response.user.id
             session['access_token'] = response.session.access_token
+            session['user_email'] = response.user.email
 
             print(f"DEBUG: Ingelogd als {email} met ID {response.user.id}")
             return redirect(url_for('main.index'))
@@ -314,55 +315,50 @@ def checkout():
         flash('Er ging iets mis bij het plaatsen van je bestelling.', 'danger')
         return redirect(url_for('main.view_cart'))
     
+# --- ADMIN ROUTE 1: Dashboard Bekijken ---
 @main.route('/admin/voorraad')
 def admin_inventory():
-    # 1. Check: Is er iemand ingelogd?
+    # 1. Is er iemand ingelogd?
     if 'user_id' not in session:
         flash('Je moet ingelogd zijn.', 'warning')
         return redirect(url_for('main.login'))
 
-    # 2. Check: Is dit de bakker? (Beveiliging)
-    # Voor nu hardcoden we even jouw e-mailadres. 
-    # Vervang dit door het e-mailadres waarmee jij inlogt!
-    ADMIN_EMAIL = "mathisdebaene@gmail.com" 
+    # 2. NIEUW: Is het de admin?
+    current_email = session.get('user_email')
     
-    # We halen het profiel even op om het email te checken
-    # Let op: Profile heeft geen email kolom in jouw model, die zit in Supabase Auth.
-    # Maar we hebben het email vaak ook in de sessie zitten of we vertrouwen nu even op de login.
-    # OMDAT we email niet in Profile hebben, slaan we deze check HEEL EVEN over voor de test.
-    # In een echt systeem haal je de email op via supabase.auth.get_user().
-    
-    # 3. Haal alle ingrediënten op, gesorteerd op naam
+    if current_email != 'mathisdebaene@gmail.com':
+        flash('Geen toegang! Alleen de beheerder mag hier komen.', 'danger')
+        return redirect(url_for('main.index'))
+
+    # 3. Als we hier zijn, is het veilig. Haal de data op.
     ingredients = Ingredient.query.order_by(Ingredient.name).all()
-    
     return render_template('admin_inventory.html', ingredients=ingredients)
 
 
+# --- ADMIN ROUTE 2: Voorraad Bijvullen ---
 @main.route('/admin/restock', methods=['POST'])
 def restock_ingredient():
-    # 1. Beveiliging (hetzelfde als bij inventory)
+    # 1. Beveiliging (dezelfde check!)
     if 'user_id' not in session:
-        flash('Je moet ingelogd zijn.', 'warning')
         return redirect(url_for('main.login'))
+        
+    if session.get('user_email') != 'mathisdebaene@gmail.com':
+        flash('Geen toegang.', 'danger')
+        return redirect(url_for('main.index'))
 
-    # 2. Haal de data uit het formulier
+    # 2. De logica (blijft hetzelfde)
     ingredient_id = request.form.get('ingredient_id')
     amount = request.form.get('amount')
 
     try:
-        # 3. Zoek het ingrediënt en update de voorraad
         ingredient = Ingredient.query.get(ingredient_id)
-        
         if ingredient and amount:
-            # We tellen het erbij op (Decimal zorgt voor precieze getallen)
             ingredient.stock_quantity += Decimal(amount)
             db.session.commit()
             flash(f'Voorraad van {ingredient.name} bijgewerkt!', 'success')
-        
     except Exception as e:
         db.session.rollback()
-        flash('Er ging iets mis bij het bijwerken.', 'danger')
+        flash('Fout bij bijwerken.', 'danger')
         print(f"FOUT: {e}")
 
-    # 4. Ga direct terug naar het dashboard
     return redirect(url_for('main.admin_inventory'))
