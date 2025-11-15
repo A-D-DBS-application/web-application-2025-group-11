@@ -9,7 +9,7 @@ ADMIN_EMAILS = [
     "mathisdebaene@gmail.com",
     "emile.debourdeaudhuy@icloud.com", 
     "roel.vanzele@telenet.be",
-    "Marie haar prive email?",
+    "marieberge33@icloud.com",
     "Alehan zijn prive email?"
 
 ]
