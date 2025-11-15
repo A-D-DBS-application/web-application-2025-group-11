@@ -20,7 +20,8 @@ class Product(db.Model):
     category = db.Column(db.Text)
     is_available = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime(timezone=True), server_default=func.now())
-
+    ingredients = db.relationship('ProductIngredient', backref='product', lazy=True)
+    
     # --- Relaties ---
     order_items = db.relationship('OrderItem', backref='product', lazy=True)
 
@@ -98,3 +99,36 @@ class OrderItem(db.Model):
     # --- Methoden ---
     def __repr__(self):
         return f'<OrderItem {self.id} (Order {self.order_id})>'
+    
+# =========================================
+# ERP SYSTEEM: VOORRAAD & RECEPTEN
+# =========================================
+
+# 5. Ingredient Model (Het Magazijn)
+class Ingredient(db.Model):
+    __tablename__ = 'ingredients'
+
+    id = db.Column(db.BigInteger, primary_key=True)
+    name = db.Column(db.Text, nullable=False)
+    stock_quantity = db.Column(db.Numeric(10, 2), nullable=False, default=0)
+    unit = db.Column(db.Text, nullable=False) # bijv. 'gram', 'ml'
+    threshold = db.Column(db.Numeric(10, 2), default=1000) # Waarschuwingsgrens
+
+    def __repr__(self):
+        return f'<Ingredient {self.name} - Voorraad: {self.stock_quantity} {self.unit}>'
+
+# 6. ProductIngredient Model (Het Recept)
+# Dit is de koppeling: Hoeveel van X zit er in Y?
+class ProductIngredient(db.Model):
+    __tablename__ = 'product_ingredients'
+
+    id = db.Column(db.BigInteger, primary_key=True)
+    product_id = db.Column(db.BigInteger, db.ForeignKey('products.id'), nullable=False)
+    ingredient_id = db.Column(db.BigInteger, db.ForeignKey('ingredients.id'), nullable=False)
+    quantity_needed = db.Column(db.Numeric(10, 2), nullable=False)
+
+    # Relatie: Hiermee kun je vanuit een receptregel direct bij de details van het ingrediënt
+    ingredient = db.relationship('Ingredient')
+
+    def __repr__(self):
+        return f'<ReceptRegel: {self.quantity_needed} van {self.ingredient_id} voor Product {self.product_id}>'

@@ -186,7 +186,7 @@ body {
 
 /* De individuele productkaart */
 .product-card {
-    background-color: #F9FCF0; /* Jouw beige kleur */
+    background-color: #553f0f28; /* Jouw beige kleur */
     padding: 20px;
     border-radius: 8px;        /* Iets rondere hoekjes */
     display: flex;
@@ -357,3 +357,73 @@ body {
         grid-template-columns: 1fr; /* 1 kolom */
     }
 }
+
+/* --- ADMIN DASHBOARD --- */
+.inventory-card {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.inventory-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+.inventory-table th, .inventory-table td {
+    padding: 12px 15px;
+    border-bottom: 1px solid #eee;
+    text-align: left;
+}
+
+.inventory-table th {
+    background-color: #f8f9fa;
+    font-weight: bold;
+    color: #333;
+}
+
+/* De rij die rood wordt bij te weinig voorraad */
+.alert-row {
+    background-color: #ffebee; /* Lichtrood */
+    color: #c62828; /* Donkerrood */
+}
+
+.alert-row td {
+    border-bottom: 1px solid #ef9a9a;
+}
+
+/* Hover effectje voor leesbaarheid */
+.inventory-table tr:hover:not(.alert-row) {
+    background-color: #f5f5f5;
+} 
+
+/* --- RESTOCK FORMULIER (IN TABEL) --- */
+.restock-form {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.restock-input {
+    width: 80px;
+    padding: 5px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+.restock-btn {
+    background-color: var(--primary-green); /* Of een mooie blauwe kleur */
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: background 0.2s;
+}
+
+.restock-btn:hover {
+    background-color: #3e2d0a; /* Donkerder bij hover */
+}   

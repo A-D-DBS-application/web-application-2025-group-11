@@ -1,8 +1,9 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
-from .models import Product, Profile, Order, OrderItem, db
+from .models import Product, Profile, Order, OrderItem, Ingredient, db
 from . import supabase
 from decimal import Decimal
 from datetime import datetime
+from decimal import Decimal
 
 main = Blueprint('main', __name__)
 
@@ -17,7 +18,6 @@ def inject_user():
     # Maak de variabele 'current_user' beschikbaar in alle HTML-bestanden
     return dict(current_user=user_profile)
 
-# AANGEPAST: De index route haalt nu data op
 @main.route('/')
 def index():
     # 1. Vraag aan de database: "Geef mij alle producten waar is_available True is"
@@ -25,7 +25,6 @@ def index():
     
     # 2. Geef de lijst met producten door aan de index.html template
     return render_template('index.html', products=products)
-
 
 @main.route('/register', methods=['GET', 'POST'])
 def register():
@@ -171,8 +170,6 @@ def view_cart():
                            cart_items=products_in_cart, 
                            total_cart_price=total_cart_price)
 
-# In app/routes.py
-
 @main.route('/cart/remove/<int:product_id>', methods=['POST'])
 def remove_from_cart(product_id):
     # Haal het mandje op
@@ -189,8 +186,6 @@ def remove_from_cart(product_id):
     # Stuur de gebruiker terug naar de winkelwagen
     return redirect(url_for('main.view_cart'))
 
-# In app/routes.py
-
 @main.route('/checkout', methods=['POST'])
 def checkout():
     # 1. Is de gebruiker ingelogd?
@@ -204,49 +199,83 @@ def checkout():
         flash('Je mandje is leeg.', 'warning')
         return redirect(url_for('main.view_cart'))
     
-    # 3. NIEUW: Lees de extra formulier-data uit
+    # 3. Lees de extra formulier-data uit
     pickup_date_str = request.form.get('pickup_date')
     remarks = request.form.get('remarks')
 
     try:
-        # 4. NIEUW: Converteer de datum-string naar een Python datum-object
+        # 4. Converteer de datum
         pickup_date_obj = None
         if pickup_date_str:
             pickup_date_obj = datetime.strptime(pickup_date_str, '%Y-%m-%d').date()
         else:
-            # Als de 'required' in HTML faalt, vangen we het hier op
             flash('Geen ophaaldatum geselecteerd.', 'danger')
             return redirect(url_for('main.view_cart'))
 
-        # --- We gaan de database in schrijven ---
-        
         # 5. Haal alle product-objecten op
         product_ids = [int(id) for id in cart_dict.keys()]
         products = Product.query.filter(Product.id.in_(product_ids)).all()
-        
-        # 6. Bereken de ECHTE totaalprijs
-        total_price = Decimal(0.0) # Gebruik Decimal
         products_map = {str(p.id): p for p in products} 
+
+        # ============================================================
+        # ### NIEUW: ERP LOGICA - DEEL 1: DE CHECK
+        # We berekenen eerst hoeveel we in TOTAAL nodig hebben van alles
+        # ============================================================
+        ingredients_needed = {} # Dictionary om totalen bij te houden
+
+        for product_id, quantity in cart_dict.items():
+            product = products_map[str(product_id)]
+            
+            # Kijk naar het recept van dit product
+            for recept_regel in product.ingredients:
+                ingredient = recept_regel.ingredient
+                nodig_voor_dit_product = recept_regel.quantity_needed * Decimal(quantity)
+
+                # Voeg toe aan de totaalijst
+                if ingredient.id in ingredients_needed:
+                    ingredients_needed[ingredient.id]['amount'] += nodig_voor_dit_product
+                else:
+                    # We slaan het hele object op zodat we straks de voorraad kunnen updaten
+                    ingredients_needed[ingredient.id] = {
+                        'object': ingredient,
+                        'amount': nodig_voor_dit_product
+                    }
+
+        # Nu checken we of we genoeg hebben
+        for ing_id, data in ingredients_needed.items():
+            ingredient = data['object']
+            totaal_nodig = data['amount']
+            
+            if ingredient.stock_quantity < totaal_nodig:
+                # Oei, te weinig! Stop het proces.
+                flash(f"Onze excuses, we we hebben op dit moment niet genoeg voorraad om uw bestelling te verwerken.", 'danger')
+                return redirect(url_for('main.view_cart'))
         
+        # ============================================================
+        # EINDE CHECK - Als we hier zijn, is er genoeg voorraad!
+        # ============================================================
+
+
+        # 6. Bereken de ECHTE totaalprijs
+        total_price = Decimal(0.0) 
         for product_id, quantity in cart_dict.items():
             product_price = products_map[product_id].price
-            total_price += (product_price * quantity)
+            total_price += (product_price * Decimal(quantity))
 
-        # 7. AANGEPAST: Maak de 'Order' aan MET de nieuwe velden
+        # 7. Maak de 'Order' aan
         new_order = Order(
             user_id=session['user_id'],
             total_price=total_price,
             status='pending',
-            pickup_date=pickup_date_obj,  # <-- HIER TOEGEVOEGD
-            remarks=remarks               # <-- HIER TOEGEVOEGD
+            pickup_date=pickup_date_obj,
+            remarks=remarks
         )
         db.session.add(new_order)
-        db.session.flush() # Vraag de ID op
+        db.session.flush()
 
         # 8. Maak de 'OrderItems' aan
         for product_id, quantity in cart_dict.items():
             product = products_map[product_id]
-            
             order_item = OrderItem(
                 order_id=new_order.id,      
                 product_id=product.id,
@@ -254,6 +283,20 @@ def checkout():
                 unit_price_at_order=product.price 
             )
             db.session.add(order_item)
+
+        # ============================================================
+        # ### NIEUW: ERP LOGICA - DEEL 2: DE TRANSACTIE
+        # Nu trekken we het daadwerkelijk van de voorraad af
+        # ============================================================
+        for ing_id, data in ingredients_needed.items():
+            ingredient = data['object']
+            totaal_eraf = data['amount']
+            
+            # Update de database
+            ingredient.stock_quantity -= totaal_eraf
+            db.session.add(ingredient) # Zeg tegen Flask dat dit gewijzigd is
+        
+        # ============================================================
 
         # 9. Alles is gelukt! Maak het permanent.
         db.session.commit()
@@ -263,10 +306,63 @@ def checkout():
         session.modified = True
 
         flash('Bestelling succesvol geplaatst! Je kan ze ophalen op de gekozen datum.', 'success')
-        return redirect(url_for('main.index')) # Stuur naar de homepagina
+        return redirect(url_for('main.index'))
 
     except Exception as e:
         db.session.rollback()
         print(f"FOUT bij checkout: {e}")
         flash('Er ging iets mis bij het plaatsen van je bestelling.', 'danger')
         return redirect(url_for('main.view_cart'))
+    
+@main.route('/admin/voorraad')
+def admin_inventory():
+    # 1. Check: Is er iemand ingelogd?
+    if 'user_id' not in session:
+        flash('Je moet ingelogd zijn.', 'warning')
+        return redirect(url_for('main.login'))
+
+    # 2. Check: Is dit de bakker? (Beveiliging)
+    # Voor nu hardcoden we even jouw e-mailadres. 
+    # Vervang dit door het e-mailadres waarmee jij inlogt!
+    ADMIN_EMAIL = "mathisdebaene@gmail.com" 
+    
+    # We halen het profiel even op om het email te checken
+    # Let op: Profile heeft geen email kolom in jouw model, die zit in Supabase Auth.
+    # Maar we hebben het email vaak ook in de sessie zitten of we vertrouwen nu even op de login.
+    # OMDAT we email niet in Profile hebben, slaan we deze check HEEL EVEN over voor de test.
+    # In een echt systeem haal je de email op via supabase.auth.get_user().
+    
+    # 3. Haal alle ingrediënten op, gesorteerd op naam
+    ingredients = Ingredient.query.order_by(Ingredient.name).all()
+    
+    return render_template('admin_inventory.html', ingredients=ingredients)
+
+
+@main.route('/admin/restock', methods=['POST'])
+def restock_ingredient():
+    # 1. Beveiliging (hetzelfde als bij inventory)
+    if 'user_id' not in session:
+        flash('Je moet ingelogd zijn.', 'warning')
+        return redirect(url_for('main.login'))
+
+    # 2. Haal de data uit het formulier
+    ingredient_id = request.form.get('ingredient_id')
+    amount = request.form.get('amount')
+
+    try:
+        # 3. Zoek het ingrediënt en update de voorraad
+        ingredient = Ingredient.query.get(ingredient_id)
+        
+        if ingredient and amount:
+            # We tellen het erbij op (Decimal zorgt voor precieze getallen)
+            ingredient.stock_quantity += Decimal(amount)
+            db.session.commit()
+            flash(f'Voorraad van {ingredient.name} bijgewerkt!', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        flash('Er ging iets mis bij het bijwerken.', 'danger')
+        print(f"FOUT: {e}")
+
+    # 4. Ga direct terug naar het dashboard
+    return redirect(url_for('main.admin_inventory'))
