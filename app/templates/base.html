@@ -9,24 +9,29 @@
 <body>
     <header class="main-header">
     <div class="container header-content">
-        <a href="/" class="logo">
+        <a href="{{ url_for('main.index') }}" class="logo">
             <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Bakkerij Oewist">
         </a>
 
         <nav class="main-nav">
             <ul>
-                <li><a href="#">Brood</a></li>
-                <li><a href="#">Pistoles</a></li>
-                <li><a href="#">Koffiekoeken</a></li>
-                <li><a href="#">Contact</a></li>
+                <li><a href="{{ url_for('main.index', category='brood') }}">Brood</a></li>
+                <li><a href="{{ url_for('main.index', category='pistoles') }}">Pistolets</a></li>
+                <li><a href="{{ url_for('main.index', category='koffiekoeken') }}">Koffiekoeken</a></li>
+                <li><a href="{{ url_for('main.contact') }}">Contact</a></li>
             </ul>
         </nav>
 
         <div class="header-icons" style="display: flex; align-items: center;">
             {% if current_user %}
-                <span style="color: white; margin-right: 15px; font-weight: bold; display: flex; align-items: center;">
-                    Hoi, {{ current_user.full_name.split(' ')[0] or 'Klant' }}!
-                </span>
+                <div style="display: flex; flex-direction: column; align-items: flex-end; margin-right: 15px;">
+                    <span style="color: white; font-weight: bold;">
+                        Hoi, {{ current_user.full_name.split(' ')[0] }}!
+                    </span>
+                    <a href="{{ url_for('main.my_orders') }}" style="color: #FFD700; font-size: 13px; text-decoration: none;">
+                        Mijn Bestellingen
+                    </a>
+                </div>
                 <a href="{{ url_for('main.logout') }}" class="icon-link" title="Uitloggen">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="white" width="32" height="32">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
@@ -73,17 +78,13 @@
     </main>
 
     <script>
-        // Wacht tot de hele pagina geladen is
         document.addEventListener('DOMContentLoaded', function() {
-            
-            // --- Deel 1: Werking + en - knoppen ---
+            // Werking + en - knoppen
             document.querySelectorAll('.bestel-groep').forEach(function(group) {
-                
                 const input = group.querySelector('.quantity-input');
                 const btnMinus = group.querySelector('.minus');
                 const btnPlus = group.querySelector('.plus');
 
-                // Zorg dat de knoppen bestaan voordat je event listeners toevoegt
                 if (input && btnMinus && btnPlus) {
                     btnPlus.addEventListener('click', function() {
                         let currentValue = parseInt(input.value);
@@ -96,27 +97,22 @@
                         }
                     });
                 }
-            }); // Einde .bestel-groep logic
-        
-            // --- Deel 2: Werking verwijderknoppen ---
-            // (Deze code staat nu BINNEN de DOMContentLoaded)
+            }); 
+            
+            // Werking verwijderknoppen in cart (voor cart.html)
             document.querySelectorAll('.remove-from-cart-btn').forEach(button => {
                 button.addEventListener('click', function() {
                     const productId = this.dataset.productId;
-                    
                     if (confirm('Weet je zeker dat je dit product wilt verwijderen?')) {
-                        
                         const form = document.createElement('form');
                         form.method = 'POST';
                         form.action = `/cart/remove/${productId}`; 
-                        
                         document.body.appendChild(form);
                         form.submit();
                     }
                 });
-            }); // Einde .remove-from-cart-btn logic
-
-        }); // HIER sluit de 'DOMContentLoaded' listener (maar één keer)
+            }); 
+        });
     </script>
     </body>
 </html>

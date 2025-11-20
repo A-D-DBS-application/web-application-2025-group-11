@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container" style="margin-top: 50px; max-width: 800px;">
+    <h1 style="color: #6D4C41;">Contacteer Bakkerij Oewist</h1>
+    <p class="lead">Heb je een vraag over allergenen of een speciale bestelling? Spring gerust binnen!</p>
+    
+    <div style="display: flex; gap: 40px; margin-top: 30px; flex-wrap: wrap; background: #fff; padding: 30px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
+        <div style="flex: 1; min-width: 300px;">
+            <h3 style="color: #A67B5B; margin-bottom: 15px;">Onze Gegevens</h3>
+            <p>
+                <strong>Adres:</strong><br>
+                Kerkstraat 15<br>
+                9910 Knesselare
+            </p>
+            <p>
+                <strong>Telefoon:</strong><br>
+                09 123 45 67
+            </p>
+            <p>
+                <strong>E-mail:</strong><br>
+                info@bakkerijoewist.be
+            </p>
+        </div>
+        
+        <div style="flex: 1; min-width: 300px;">
+            <h3 style="color: #A67B5B; margin-bottom: 15px;">Openingsuren</h3>
+            <ul style="list-style: none; padding: 0;">
+                <li style="margin-bottom: 5px;"><strong>Ma - Vr:</strong> 06:00 - 18:00</li>
+                <li style="margin-bottom: 5px;"><strong>Za:</strong> 07:00 - 16:00</li>
+                <li><strong>Zo:</strong> 07:00 - 13:00</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div style="margin-top: 30px;">
+         <a href="{{ url_for('main.index') }}" style="text-decoration: underline; color: #6D4C41;">&larr; Terug naar de winkel</a>
+    </div>
+</div>
+{% endblock %}

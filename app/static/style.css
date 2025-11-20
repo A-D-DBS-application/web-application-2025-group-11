@@ -1,29 +1,48 @@
-/* Basis instellingen */
-:root {
-    --primary-green: #583421; /* De bruine kleur van je header */
-    --bg-light: #ffffff;      /* De lichte achtergrondkleur */
-    --text-dark: #333;
-    --alert-red: #D32F2F;
+/* =========================================
+   1. ALGEMENE STIJLEN
+   ========================================= */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
 }
 
 body {
-    margin: 0;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* Kies een font dat lijkt op je ontwerp */
-    background-color: var(--bg-light);
-    color: var(--text-dark);
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    background-color: #fdfbf7; /* Lichte crème achtergrond voor de pagina */
+    color: #333;
+    line-height: 1.6;
+}
+
+a {
+    text-decoration: none;
+    color: inherit;
+}
+
+ul {
+    list-style: none;
 }
 
 .container {
+    width: 90%;
     max-width: 1200px;
     margin: 0 auto;
-    padding: 0 20px;
+    padding: 0 15px;
 }
 
-/* Header Styling */
+h1 {
+    color: #593C28; /* JOUW EXACTE KLEUR */
+    margin-bottom: 30px;
+}
+
+/* =========================================
+   2. HEADER & NAVIGATIE
+   ========================================= */
 .main-header {
-    background-color: var(--primary-green);
+    background-color: #593C28; /* JOUW EXACTE KLEUR */
     padding: 15px 0;
     color: white;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
 
 .header-content {
@@ -32,113 +51,155 @@ body {
     align-items: center;
 }
 
-/* De container (de link) om het logo heen */
-.logo {
-    background-color: white; /* Maakt het witte vierkant */
-    display: flex;           /* Zorgt dat het logo netjes gecentreerd staat */
-    align-items: center;
-    justify-content: center;
-    padding: 10px;           /* Ruimte tussen het logo en de rand van het witte vlak */
-    border-radius: 8px;      /* Optioneel: maakt de hoekjes van het witte vlak iets ronder */
+.logo img {
+    height: 70px;
+    width: auto;
+    background-color: white; /* Wit vlakje */
+    padding: 8px; 
+    border-radius: 5px; 
+    display: block;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    transition: transform 0.3s ease;
 }
 
-/* Het logo zelf */
-.logo img {
-    height: 80px; /* Iets kleiner gemaakt zodat het totale vlak niet te groot wordt, pas gerust aan */
-    display: block; /* Voorkomt onverwachte witruimte onder de afbeelding */
+.logo img:hover {
+    transform: scale(1.05);
 }
+
 .main-nav ul {
-    list-style: none;
     display: flex;
-    gap: 30px;
-    margin: 0;
-    padding: 0;
+    gap: 35px;
+    align-items: center;
 }
 
 .main-nav a {
     color: white;
+    font-weight: 800; 
+    text-transform: uppercase;
+    font-size: 0.95rem;
+    transition: color 0.3s;
+    letter-spacing: 0.5px;
     text-decoration: none;
+}
+
+.main-nav a:hover {
+    color: #FFD700; /* Goudgeel */
+}
+
+.icon-link {
+    position: relative;
+    display: flex;
+    align-items: center;
+    color: white;
+}
+
+.icon-link svg {
+    transition: transform 0.2s;
+    stroke: white;
+}
+
+.icon-link:hover svg {
+    transform: scale(1.1);
+}
+
+.cart-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background-color: #E63946;
+    color: white;
+    font-size: 0.75rem;
     font-weight: bold;
-    font-size: 1.1rem;
-    text-transform: uppercase; /* Zorgt voor hoofdletters zoals in je ontwerp */
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: 2px solid #593C28; /* Randje in jouw kleur */
 }
 
-.header-icons .icon-link {
-    font-size: 1.5rem;
-    margin-left: 20px;
-    text-decoration: none;
-}
-
-/* Hero Sectie Styling */
+/* =========================================
+   3. HERO SECTION
+   ========================================= */
 .hero-section {
-    padding: 50px 0;
-    background-color: var(--bg-light); /* Zorgt dat de lichte kleur doorloopt */
+    padding: 60px 0;
+    background-color: #fdfbf7;
 }
 
 .hero-content {
     display: flex;
-    gap: 50px;
     align-items: center;
+    gap: 60px;
+    flex-wrap: wrap;
 }
 
 .hero-text {
-    flex: 1; /* Neemt de helft van de ruimte in */
+    flex: 1;
+    min-width: 300px;
 }
 
 .hero-text h1 {
-    color: #2C3E50; /* Donkergroen/blauw voor de titel */
-    font-size: 2rem;
+    font-size: 2.2rem; /* Een stukje kleiner (was 3rem of 2.5rem) */
+    color: #593C28;
     margin-bottom: 20px;
-}
-
-.hero-text p {
-    line-height: 1.6;
-    color: #555;
-    margin-bottom: 15px;
+    line-height: 1.3; /* Iets meer lucht tussen de regels voor leesbaarheid */
+    font-weight: 800; /* Wel lekker dikgedrukt voor impact */
+    letter-spacing: -0.5px; /* Letters ietsje dichter bij elkaar */
 }
 
 .hero-image {
-    flex: 1; /* Neemt de andere helft in */
+    flex: 1;
+    min-width: 300px;
+    display: flex;
+    justify-content: center;
 }
 
 .hero-image img {
     width: 100%;
-    border-radius: 8px; /* Maakt de hoekjes iets ronder */
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    max-width: 500px;
+    border-radius: 15px;
+    box-shadow: 0 8px 25px rgba(89, 60, 40, 0.2);
 }
 
-/* Alert Box Styling */
+/* 17:00 Melding: Wit en Fris */
 .alert-box {
     display: flex;
     align-items: center;
+    gap: 20px;
     margin-top: 30px;
-    color: var(--alert-red);
+    background-color: #ffffff; /* SPIERWIT */
+    padding: 20px;
+    border-radius: 8px;
+    border-left: 5px solid #E63946;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.05); 
 }
 
 .alert-icon {
-    background-color: var(--alert-red);
-    color: white;
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    color: #E63946;
+    font-size: 1.8rem;
     font-weight: bold;
-    font-size: 1.2rem;
-    margin-right: 15px;
 }
 
-/* --- FILTER SECTIE --- */
+.alert-box p {
+    color: #555;
+    margin: 0;
+}
+
+.alert-box strong {
+    color: #593C28; /* JOUW EXACTE KLEUR */
+}
+
+/* =========================================
+   4. FILTER KNOPPEN
+   ========================================= */
 .filter-section {
-    padding: 40px 20px 20px;
-    text-align: left;
+    padding: 20px 0 40px 0;
 }
 
 .filter-section h2 {
-    font-size: 1.5rem;
     margin-bottom: 25px;
-    color: #000;
+    color: #593C28; /* JOUW EXACTE KLEUR */
 }
 
 .filter-buttons {
@@ -148,282 +209,255 @@ body {
 }
 
 .filter-btn {
-    background: white;
-    border: 2px solid #333;
-    padding: 12px 30px;
-    font-weight: bold;
+    display: inline-block;
+    background-color: transparent;
+    border: 2px solid #593C28; /* JOUW EXACTE KLEUR */
+    color: #593C28; /* JOUW EXACTE KLEUR */
+    padding: 12px 28px;
     font-size: 1rem;
+    font-weight: bold;
+    text-transform: capitalize;
+    border-radius: 6px;
+    transition: all 0.3s ease;
     cursor: pointer;
-    transition: all 0.2s;
-    min-width: 120px; /* Zorgt dat ze allemaal ongeveer even breed zijn */
     text-align: center;
 }
 
-.filter-btn:hover, .filter-btn.active {
-    background: #333;
+.filter-btn:hover {
+    background-color: #593C28; /* JOUW EXACTE KLEUR */
     color: white;
+    border-color: #593C28;
+    transform: translateY(-2px);
 }
 
-/* --- PRODUCT ROOSTER --- */
+.filter-btn.active {
+    background-color: #593C28; /* JOUW EXACTE KLEUR */
+    color: white;
+    border-color: #593C28;
+    box-shadow: 0 4px 8px rgba(89, 60, 40, 0.3);
+}
+
+/* =========================================
+   5. PRODUCTEN GRID
+   ========================================= */
 .product-section {
-    padding: 40px 20px;
-    border-top: 1px solid #ccc; /* Het dunne lijntje boven de producten */
-    margin-top: 40px;
+    padding-bottom: 80px;
 }
 
-/* Het rooster zelf: zorgt dat kaarten naast elkaar komen */
 .product-grid {
     display: grid;
-    /*
-       Dit maakt automatisch kolommen van minimaal 250px breed.
-       Op een breed scherm passen er 4 naast elkaar, op een kleiner scherm minder.
-       '1fr' betekent dat ze de rest van de ruimte eerlijk verdelen.
-    */
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-    gap: 30px; /* Ruimte tussen de kaarten */
-    align-items: stretch; /* Zorgt dat alle kaarten even hoog worden */
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 35px;
 }
 
-/* De individuele productkaart */
 .product-card {
-    background-color: #553f0f28; /* Jouw beige kleur */
-    padding: 20px;
-    border-radius: 8px;        /* Iets rondere hoekjes */
-    display: flex;
-    flex-direction: column;    /* Alles netjes onder elkaar in de kaart */
-    height: 100%;              /* Vult de volledige hoogte van de grid-rij */
-    box-sizing: border-box;    /* Zorgt dat padding niet bij de breedte wordt opgeteld */
-}
-
-/* De container voor de afbeelding */
-.product-image {
-    width: 100%;
-    height: 200px;       /* VASTE HOOGTE: Cruciaal voor gelijke plaatjes! */
-    background-color: white;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin-bottom: 15px;
-    overflow: hidden;    /* Knipt de foto af als hij tóch te groot is */
-    border-radius: 4px;
-}
-
-/* De afbeelding zelf */
-.product-image img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;   /* Vult het hele vakje, snijdt randjes af voor strak resultaat */
-    transition: transform 0.3s ease;
-}
-
-/* Optioneel: licht zoom-effect bij hoveren */
-.product-card:hover .product-image img {
-    transform: scale(1.05);
-}
-
-/* Info-gedeelte van de kaart */
-.product-info {
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+    transition: transform 0.3s, box-shadow 0.3s;
     display: flex;
     flex-direction: column;
-    flex-grow: 1; /* Neemt alle overgebleven ruimte in */
+    border: 1px solid #f0f0f0;
+}
+
+.product-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 30px rgba(89, 60, 40, 0.15);
+}
+
+.product-image img {
+    width: 100%;
+    height: 220px;
+    object-fit: cover;
+    border-bottom: 3px solid #fdfbf7;
+}
+
+.product-info {
+    padding: 25px;
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
 }
 
 .product-info h3 {
-    margin: 0 0 10px 0;
+    margin-bottom: 10px;
+    color: #593C28; /* JOUW EXACTE KLEUR */
     font-size: 1.3rem;
-    color: #000;
 }
 
 .product-info p {
     font-size: 0.95rem;
+    color: #666;
+    margin-bottom: 20px;
+    flex-grow: 1;
     line-height: 1.5;
-    color: #444;
-    flex-grow: 1; /* Duwt de prijs naar de bodem van de kaart */
-    margin-bottom: 15px;
 }
 
-.price {
+.product-info span {
+    font-weight: bold;
+    font-size: 1.3rem;
+    color: #593C28; /* JOUW EXACTE KLEUR */
     display: block;
-    text-align: right;
-    font-weight: bold;
-    font-size: 1.2rem;
-    color: #000;
-    margin-top: auto; /* Zorgt dat de prijs altijd helemaal onderaan staat */
+    margin-bottom: 20px;
 }
 
-/* Stijl voor de nieuwe 'Bestel' knop */
-.btn-bestel {
-    background-color: #8B4513; /* Dit is een standaard 'zadelbruin', pas de kleur gerust aan! */
-    color: white;
-    padding: 10px 16px;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-weight: bold;
-    font-size: 14px;
-    transition: background-color 0.3s ease;
-}
-
-/* Een 'hover' effect zodat de knop reageert als je erover muist */
-.btn-bestel:hover {
-    background-color: #A0522D; /* Een iets lichtere bruintint */
-}
-
-/* Container voor de + / - knoppen en het veld */
-.quantity-selector {
-    display: flex;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    overflow: hidden; /* Zorgt dat de knoppen netjes in de ronde hoeken vallen */
-}
-
-/* De + en - knoppen */
-.quantity-btn {
-    background-color: #f4f4f4;
-    border: none;
-    padding: 0 12px;
-    cursor: pointer;
-    font-size: 18px;
-    font-weight: bold;
-    color: #333;
-}
-
-.quantity-btn:hover {
-    background-color: #e9e9e9;
-}
-
-/* Het input veld zelf */
-.quantity-input {
-    width: 50px;
-    text-align: center;
-    border: none;
-    padding: 8px 0;
-    
-    /* BELANGRIJK: Verberg de standaard pijltjes (spinners) */
-    -moz-appearance: textfield; /* Firefox */
-}
-
-.quantity-input::-webkit-outer-spin-button,
-.quantity-input::-webkit-inner-spin-button {
-    -webkit-appearance: none; /* Chrome, Safari, Edge */
-    margin: 0;
-}
-
-/* Container voor de twee kolommen op de winkelwagenpagina */
-.cart-checkout-grid {
-    display: grid;
-    /* Op grote schermen: 2/3 voor de wagen, 1/3 voor afrekenen */
-    grid-template-columns: 2fr 1fr; 
-    gap: 40px; /* Ruimte tussen de kolommen */
-    padding: 40px 0; /* Verticale padding */
-}
-
-/* Stijlen voor de 2 sectie-blokken */
-.cart-section,
-.checkout-section {
-    background-color: #F8F4F0; /* Een heel lichte, warme beige/bruin */
-    padding: 30px;
-    border-radius: 8px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05); /* Lichte schaduw */
-}
-
-/* Zorg dat de input velden en textareas een witte achtergrond hebben */
-.checkout-section input[type="date"],
-.checkout-section textarea {
-    background-color: #fff; 
-    border: 1px solid #e0e0e0;
-}
-
-/* De 'Betalen' knop in de stijl van je bakkerij */
-.btn-betalen {
-    background-color: #8B4513; /* Donkerder bruin */
-    color: white;
-    padding: 15px 20px;
-    border: none;
-    border-radius: 5px;
-    font-size: 18px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: background-color 0.3s ease;
-}
-
-.btn-betalen:hover {
-    background-color: #A0522D; /* Iets lichtere bruin bij hover */
-}
-
-/* Op kleine schermen (mobiel), zet de kolommen ONDER elkaar */
-@media (max-width: 768px) {
-    .cart-checkout-grid {
-        grid-template-columns: 1fr; /* 1 kolom */
-    }
-}
-
-/* --- ADMIN DASHBOARD --- */
-.inventory-card {
-    background: white;
-    padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-}
-
-.inventory-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 20px;
-}
-
-.inventory-table th, .inventory-table td {
-    padding: 12px 15px;
-    border-bottom: 1px solid #eee;
-    text-align: left;
-}
-
-.inventory-table th {
-    background-color: #f8f9fa;
-    font-weight: bold;
-    color: #333;
-}
-
-/* De rij die rood wordt bij te weinig voorraad */
-.alert-row {
-    background-color: #ffebee; /* Lichtrood */
-    color: #c62828; /* Donkerrood */
-}
-
-.alert-row td {
-    border-bottom: 1px solid #ef9a9a;
-}
-
-/* Hover effectje voor leesbaarheid */
-.inventory-table tr:hover:not(.alert-row) {
-    background-color: #f5f5f5;
-} 
-
-/* --- RESTOCK FORMULIER (IN TABEL) --- */
-.restock-form {
+/* =========================================
+   6. BESTEL KNOPPEN
+   ========================================= */
+.bestel-groep {
+    margin-top: auto;
     display: flex;
     gap: 10px;
+}
+
+.quantity-selector {
+    display: flex;
     align-items: center;
+    border: 2px solid #e0e0e0;
+    border-radius: 6px;
+    overflow: hidden;
 }
 
-.restock-input {
-    width: 80px;
-    padding: 5px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-}
-
-.restock-btn {
-    background-color: var(--primary-green); /* Of een mooie blauwe kleur */
-    color: white;
+.quantity-btn {
+    background: #f5f5f5;
     border: none;
-    padding: 6px 12px;
-    border-radius: 4px;
+    width: 35px;
+    height: 40px;
+    font-weight: bold;
+    color: #593C28; /* JOUW EXACTE KLEUR */
     cursor: pointer;
-    font-size: 0.9rem;
     transition: background 0.2s;
 }
 
-.restock-btn:hover {
-    background-color: #3e2d0a; /* Donkerder bij hover */
-}   
+.quantity-btn:hover {
+    background: #e0e0e0;
+}
+
+.quantity-input {
+    width: 45px;
+    height: 40px;
+    text-align: center;
+    border: none;
+    font-weight: bold;
+    font-size: 1rem;
+    color: #333;
+    -moz-appearance: textfield;
+}
+.quantity-input::-webkit-outer-spin-button,
+.quantity-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.btn-bestel {
+    background-color: #593C28; /* JOUW EXACTE KLEUR */
+    color: white;
+    border: none;
+    padding: 0 25px;
+    height: 40px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 1rem;
+    transition: all 0.3s;
+    flex-grow: 1;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    text-align: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+}
+
+.btn-bestel:hover {
+    background-color: #482f1f; /* Ietsje donkerder bij hover */
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(89, 60, 40, 0.2);
+}
+
+/* =========================================
+   7. WINKELWAGEN & AFREKENEN
+   ========================================= */
+/* DIT IS SPIERWIT GEMAAKT (#ffffff) */
+.cart-container, .checkout-container {
+    background-color: #ffffff; 
+    padding: 35px;
+    border-radius: 15px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.05); 
+    border: 1px solid #eee; 
+}
+
+.empty-cart-container {
+    background-color: #ffffff; /* WIT */
+    padding: 60px 30px;
+    border-radius: 15px;
+    text-align: center;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.05);
+    margin: 40px auto;
+    max-width: 800px;
+    border: 1px solid #eee;
+}
+
+.empty-cart-container p {
+    font-size: 1.5rem;
+    color: #593C28; /* JOUW EXACTE KLEUR */
+    margin-bottom: 30px;
+    font-weight: bold;
+}
+
+.remove-from-cart-btn {
+    background: none; 
+    border: none; 
+    color: #e63946; 
+    cursor: pointer; 
+    font-size: 1.5em;
+    padding: 0 10px;
+}
+
+.alert {
+    border-radius: 5px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+.alert-success { background-color: #d4edda; color: #155724; border-color: #c3e6cb; }
+.alert-danger { background-color: #f8d7da; color: #721c24; border-color: #f5c6cb; }
+.alert-warning { background-color: #fff3cd; color: #856404; border-color: #ffeeba; }
+
+/* =========================================
+   8. RESPONSIVE
+   ========================================= */
+@media (max-width: 768px) {
+    .header-content {
+        flex-direction: column;
+        gap: 20px;
+    }
+    
+    .main-nav ul {
+        gap: 15px;
+        font-size: 0.85rem;
+    }
+
+    .hero-content {
+        flex-direction: column-reverse;
+        text-align: center;
+        gap: 30px;
+    }
+    
+    .hero-text h1 {
+        font-size: 2rem;
+    }
+
+    .filter-buttons {
+        justify-content: center;
+    }
+    
+    .bestel-groep {
+        flex-direction: column;
+    }
+    
+    .btn-bestel {
+        width: 100%;
+    }
+}

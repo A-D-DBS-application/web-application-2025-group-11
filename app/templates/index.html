@@ -4,7 +4,12 @@
 <section class="hero-section">
     <div class="container hero-content">
         <div class="hero-text">
-            <h1>Welkom bij Bakkerij Oewist — waar geur, smaak en gezelligheid samenkomen!</h1>
+            <h1>
+    Welkom bij Bakkerij Oewist<br>
+    <span style="font-size: 0.7em; font-weight: 600; opacity: 0.9;">
+        waar geur, smaak en gezelligheid samenkomen!
+    </span>
+</h1>
             <p>In het hart van Knesselaere vind je Bakkerij Oewist, een plek
                 waar elke dag begint met de geur van versgebakken
                 brood, krokante koffiekoeken en ambachtelijke taarten.
@@ -25,13 +30,33 @@
         </div>
     </div>
 </section>
+
 <section class="container filter-section">
     <h2>Welk brood zoek je ?</h2>
     <div class="filter-buttons">
-        <button class="filter-btn active">alles</button>
-        <button class="filter-btn">brood</button>
-        <button class="filter-btn">pistoles</button>
-        <button class="filter-btn">koffiekoeken</button>
+        <a href="{{ url_for('main.index') }}" 
+           class="filter-btn {{ 'active' if not current_category or current_category == 'alles' else '' }}"
+           style="text-decoration: none; display: inline-block; text-align: center; line-height: normal; padding: 10px 20px;">
+           alles
+        </a>
+        
+        <a href="{{ url_for('main.index', category='brood') }}" 
+           class="filter-btn {{ 'active' if current_category == 'brood' else '' }}"
+           style="text-decoration: none; display: inline-block; text-align: center; line-height: normal; padding: 10px 20px;">
+           brood
+        </a>
+        
+        <a href="{{ url_for('main.index', category='pistoles') }}" 
+           class="filter-btn {{ 'active' if current_category == 'pistoles' else '' }}"
+           style="text-decoration: none; display: inline-block; text-align: center; line-height: normal; padding: 10px 20px;">
+           pistolets
+        </a>
+        
+        <a href="{{ url_for('main.index', category='koffiekoeken') }}" 
+           class="filter-btn {{ 'active' if current_category == 'koffiekoeken' else '' }}"
+           style="text-decoration: none; display: inline-block; text-align: center; line-height: normal; padding: 10px 20px;">
+           koffiekoeken
+        </a>
     </div>
 </section>
 
@@ -65,7 +90,7 @@
                     </div>
             </article>
         {% else %}
-            <p>Er zijn nog geen producten gevonden.</p>
+            <p>Er zijn nog geen producten gevonden in deze categorie.</p>
         {% endfor %}
     </div>
 </section>
