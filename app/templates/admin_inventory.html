@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container" style="margin-top: 40px;">
+    <h1>Voorraadbeheer Bakkerij</h1>
+    <p>Overzicht van alle ingrediënten in het magazijn.</p>
+
+    <div class="inventory-card">
+        <table class="inventory-table">
+    <thead>
+        <tr>
+            <th>Ingrediënt</th>
+            <th>Huidige Voorraad</th>
+            <th>Eenheid</th>
+            <th>Status</th>
+            <th>Actie</th> </tr>
+    </thead>
+    <tbody>
+        {% for ingredient in ingredients %}
+            <tr class="{{ 'alert-row' if ingredient.stock_quantity < ingredient.threshold else '' }}">
+                <td><strong>{{ ingredient.name }}</strong></td>
+                <td>{{ ingredient.stock_quantity }}</td>
+                <td>{{ ingredient.unit }}</td>
+                <td>
+                    {% if ingredient.stock_quantity < ingredient.threshold %}
+                        ⚠️ <strong>BIJBESTELLEN!</strong>
+                    {% else %}
+                        ✅ OK
+                    {% endif %}
+                </td>
+                
+                <td>
+                    <form action="{{ url_for('main.restock_ingredient') }}" method="POST" class="restock-form">
+                        <input type="hidden" name="ingredient_id" value="{{ ingredient.id }}">
+                        
+                        <input type="number" name="amount" placeholder="+ Aantal" min="1" required class="restock-input">
+                        
+                        <button type="submit" class="restock-btn" title="Voorraad toevoegen">
+                            Bijvullen
+                        </button>
+                    </form>
+                </td>
+                
+            </tr>
+        {% else %}
+            <tr>
+                <td colspan="5">Geen ingrediënten gevonden.</td>
+            </tr>
+        {% endfor %}
+    </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
