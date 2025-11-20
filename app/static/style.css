@@ -140,12 +140,12 @@ h1 {
 }
 
 .hero-text h1 {
-    font-size: 2.2rem; /* Een stukje kleiner (was 3rem of 2.5rem) */
+    font-size: 2.8rem; 
     color: #593C28;
-    margin-bottom: 20px;
-    line-height: 1.3; /* Iets meer lucht tussen de regels voor leesbaarheid */
-    font-weight: 800; /* Wel lekker dikgedrukt voor impact */
-    letter-spacing: -0.5px; /* Letters ietsje dichter bij elkaar */
+    margin-bottom: 25px;
+    line-height: 1.2; 
+    font-weight: 800;
+    letter-spacing: -0.5px;
 }
 
 .hero-image {
