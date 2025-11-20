@@ -1,8 +1,14 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
+from decimal import Decimal
+from datetime import datetime, timedelta, date
 from .models import Product, Profile, Order, OrderItem, Ingredient, db
 from . import supabase
-from decimal import Decimal
-from datetime import datetime, timedelta, date  # <--- Belangrijk voor de 17:00 regel
+
+# ==============================================================================
+#  CONFIGURATIE & BLUEPRINT
+# ==============================================================================
+
+main = Blueprint('main', __name__)
 
 ADMIN_EMAILS = [
     "mathisdebaene@gmail.com",
@@ -12,8 +18,7 @@ ADMIN_EMAILS = [
     "ali.dadachev@hotmail.com"
 ]
 
-main = Blueprint('main', __name__)
-
+# Deze functie zorgt ervoor dat 'current_user' op elke pagina beschikbaar is
 @main.context_processor
 def inject_user():
     user_profile = None
@@ -21,18 +26,21 @@ def inject_user():
         user_profile = Profile.query.get(session['user_id'])
     return dict(current_user=user_profile)
 
-# --- 1. INDEX MET FILTER LOGICA ---
+
+# ==============================================================================
+#  1. ALGEMENE PAGINA'S (Home, Contact, Profiel)
+# ==============================================================================
+
 @main.route('/')
 def index():
-    # Haal de categorie op uit de URL (?category=brood)
+    """De homepage met producten en filter."""
     category_filter = request.args.get('category')
 
-    # Filter logica: alleen filteren als er een categorie is én het is niet 'alles'
     if category_filter and category_filter != 'alles':
-        # We zoeken in de database naar de exacte match (bv: 'pistoles')
+        # Filter op specifieke categorie uit de database
         products = Product.query.filter_by(is_available=True, category=category_filter).all()
     else:
-        # Geen filter of 'alles'? Toon alle producten
+        # Toon alles
         products = Product.query.filter_by(is_available=True).all()
     
     return render_template('index.html', products=products, current_category=category_filter)
@@ -43,15 +51,44 @@ def contact():
 
 @main.route('/mijn-bestellingen')
 def my_orders():
+    """Overzicht van bestellingen voor de ingelogde gebruiker."""
     if 'user_id' not in session:
         flash('Je moet ingelogd zijn om je bestellingen te zien.', 'warning')
         return redirect(url_for('main.login'))
     
     user_id = session['user_id']
-    # Haal orders op van deze user, nieuwste eerst
+    # Sorteer op nieuwste eerst
     orders = Order.query.filter_by(user_id=user_id).order_by(Order.created_at.desc()).all()
     
     return render_template('my_orders.html', orders=orders)
+
+
+# ==============================================================================
+#  2. AUTHENTICATIE (Login, Register, Logout)
+# ==============================================================================
+
+@main.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        email = request.form.get('email')
+        password = request.form.get('password')
+
+        try:
+            # Inloggen via Supabase
+            response = supabase.auth.sign_in_with_password({
+                "email": email,
+                "password": password
+            })
+            # Sessie opslaan
+            session['user_id'] = response.user.id
+            session['access_token'] = response.session.access_token
+            session['user_email'] = response.user.email
+            return redirect(url_for('main.index'))
+
+        except Exception as e:
+            return render_template('login.html', error="E-mailadres of wachtwoord is onjuist.")
+
+    return render_template('login.html')
 
 @main.route('/register', methods=['GET', 'POST'])
 def register():
@@ -61,12 +98,14 @@ def register():
         password = request.form.get('password')
 
         try:
+            # 1. Account maken in Supabase Auth
             auth_response = supabase.auth.sign_up({
                 "email": email,
                 "password": password,
                 "options": {"data": {"full_name": full_name}}
             })
 
+            # 2. Profiel opslaan in lokale database
             if auth_response.user and auth_response.user.id:
                 user_id = auth_response.user.id
                 new_profile = Profile(id=user_id, full_name=full_name)
@@ -80,61 +119,26 @@ def register():
 
     return render_template('register.html')
 
-@main.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        email = request.form.get('email')
-        password = request.form.get('password')
-
-        try:
-            response = supabase.auth.sign_in_with_password({
-                "email": email,
-                "password": password
-            })
-            session['user_id'] = response.user.id
-            session['access_token'] = response.session.access_token
-            session['user_email'] = response.user.email
-            return redirect(url_for('main.index'))
-
-        except Exception as e:
-            error_message = "E-mailadres of wachtwoord is onjuist."
-            return render_template('login.html', error=error_message)
-
-    return render_template('login.html')
-
 @main.route('/logout')
 def logout():
     supabase.auth.sign_out()
     session.clear()
     return redirect(url_for('main.index'))
 
-@main.route('/cart/add/<int:product_id>', methods=['POST'])
-def add_to_cart(product_id):
-    try:
-        quantity_str = request.form.get('quantity', '1') 
-        quantity_to_add = int(quantity_str)
-        if quantity_to_add < 1: quantity_to_add = 1
-    except (ValueError, TypeError):
-        quantity_to_add = 1
-    
-    cart = session.get('cart', {})
-    current_quantity = cart.get(str(product_id), 0)
-    cart[str(product_id)] = current_quantity + quantity_to_add
-    session['cart'] = cart
-    session.modified = True 
 
-    product = Product.query.get_or_404(product_id) 
-    flash(f'{quantity_to_add}x {product.name} toegevoegd aan je mandje!', 'success')
-    return redirect(url_for('main.index'))
+# ==============================================================================
+#  3. WINKELWAGEN LOGICA
+# ==============================================================================
 
-# --- 2. CART MET 17:00 REGEL ---
 @main.route('/cart')
 def view_cart():
+    """Toont de winkelwagen en berekent de eerstvolgende ophaaldatum."""
     cart_dict = session.get('cart', {})
     products_in_cart = []
     total_cart_price = 0
 
     if cart_dict:
+        # Haal alle producten in één keer op uit de DB
         product_ids = [int(id) for id in cart_dict.keys()]
         products = Product.query.filter(Product.id.in_(product_ids)).all()
         
@@ -149,13 +153,12 @@ def view_cart():
                 'total_price': total_for_product
             })
 
-    # --- DATUM LOGICA ---
+    # --- 17:00 REGEL LOGICA ---
     nu = datetime.now()
-    # Stap 1: Basisregel is morgen
-    min_datum_obj = date.today() + timedelta(days=1)
-    # Stap 2: Is het na 17:00? Dan pas overmorgen.
+    min_datum_obj = date.today() + timedelta(days=1) # Standaard: morgen
+    
     if nu.hour >= 17:
-        min_datum_obj = date.today() + timedelta(days=2)
+        min_datum_obj = date.today() + timedelta(days=2) # Na 17u: overmorgen
     
     min_date_str = min_datum_obj.strftime('%Y-%m-%d')
 
@@ -164,19 +167,43 @@ def view_cart():
                            total_cart_price=total_cart_price,
                            min_date_str=min_date_str)
 
+@main.route('/cart/add/<int:product_id>', methods=['POST'])
+def add_to_cart(product_id):
+    try:
+        quantity = int(request.form.get('quantity', '1'))
+        if quantity < 1: quantity = 1
+    except (ValueError, TypeError):
+        quantity = 1
+    
+    cart = session.get('cart', {})
+    current_quantity = cart.get(str(product_id), 0)
+    cart[str(product_id)] = current_quantity + quantity
+    
+    session['cart'] = cart
+    session.modified = True 
+
+    product = Product.query.get_or_404(product_id) 
+    flash(f'{quantity}x {product.name} toegevoegd aan je mandje!', 'success')
+    return redirect(url_for('main.index'))
+
 @main.route('/cart/remove/<int:product_id>', methods=['POST'])
 def remove_from_cart(product_id):
     cart = session.get('cart', {})
-    product_id_str = str(product_id)
-    if product_id_str in cart:
-        del cart[product_id_str]
+    if str(product_id) in cart:
+        del cart[str(product_id)]
         session['cart'] = cart
         session.modified = True
-        flash(f'Product uit je winkelwagen verwijderd.', 'success')
+        flash(f'Product verwijderd.', 'success')
     return redirect(url_for('main.view_cart'))
+
+
+# ==============================================================================
+#  4. CHECKOUT & ERP SYSTEEM (De complexe logica)
+# ==============================================================================
 
 @main.route('/checkout', methods=['POST'])
 def checkout():
+    # --- STAP 1: Basis Validatie ---
     if 'user_id' not in session:
         flash('Je moet ingelogd zijn om af te rekenen.', 'danger')
         return redirect(url_for('main.login'))
@@ -190,19 +217,21 @@ def checkout():
     remarks = request.form.get('remarks')
 
     try:
-        pickup_date_obj = None
         if pickup_date_str:
             pickup_date_obj = datetime.strptime(pickup_date_str, '%Y-%m-%d').date()
         else:
             flash('Geen ophaaldatum geselecteerd.', 'danger')
             return redirect(url_for('main.view_cart'))
 
+        # Haal producten op voor berekeningen
         product_ids = [int(id) for id in cart_dict.keys()]
         products = Product.query.filter(Product.id.in_(product_ids)).all()
         products_map = {str(p.id): p for p in products} 
 
-        # ERP CHECK
+        # --- STAP 2: ERP CHECK (Voorraad berekenen) ---
+        # We tellen alle ingrediënten van alle producten in het mandje op
         ingredients_needed = {}
+        
         for product_id, quantity in cart_dict.items():
             product = products_map[str(product_id)]
             for recept_regel in product.ingredients:
@@ -217,18 +246,17 @@ def checkout():
                         'amount': nodig_voor_dit_product
                     }
 
+        # Check of er genoeg is van elk ingrediënt
         for ing_id, data in ingredients_needed.items():
             ingredient = data['object']
-            totaal_nodig = data['amount']
-            if ingredient.stock_quantity < totaal_nodig:
+            if ingredient.stock_quantity < data['amount']:
                 flash(f"Helaas, we hebben niet genoeg {ingredient.name} voor deze bestelling.", 'danger')
                 return redirect(url_for('main.view_cart'))
         
-        # Order aanmaken
+        # --- STAP 3: Order Aanmaken ---
         total_price = Decimal(0.0) 
         for product_id, quantity in cart_dict.items():
-            product_price = products_map[product_id].price
-            total_price += (product_price * Decimal(quantity))
+            total_price += (products_map[product_id].price * Decimal(quantity))
 
         new_order = Order(
             user_id=session['user_id'],
@@ -238,8 +266,9 @@ def checkout():
             remarks=remarks
         )
         db.session.add(new_order)
-        db.session.flush()
+        db.session.flush() # Zorgt dat new_order.id beschikbaar komt
 
+        # Orderregels toevoegen
         for product_id, quantity in cart_dict.items():
             product = products_map[product_id]
             order_item = OrderItem(
@@ -250,17 +279,20 @@ def checkout():
             )
             db.session.add(order_item)
 
-        # Voorraad afboeken
+        # --- STAP 4: Voorraad Afboeken (ERP Update) ---
         for ing_id, data in ingredients_needed.items():
             ingredient = data['object']
             ingredient.stock_quantity -= data['amount']
             db.session.add(ingredient)
         
+        # Alles opslaan
         db.session.commit()
+        
+        # Mandje legen
         session.pop('cart', None)
         session.modified = True
 
-        flash('Bestelling succesvol geplaatst! Je kan ze ophalen op de gekozen datum.', 'success')
+        flash('Bestelling succesvol geplaatst!', 'success')
         return redirect(url_for('main.index'))
 
     except Exception as e:
@@ -269,14 +301,18 @@ def checkout():
         flash('Er ging iets mis bij het plaatsen van je bestelling.', 'danger')
         return redirect(url_for('main.view_cart'))
 
+
+# ==============================================================================
+#  5. ADMIN PAGINA'S
+# ==============================================================================
+
 @main.route('/admin/voorraad')
 def admin_inventory():
     if 'user_id' not in session:
         flash('Je moet ingelogd zijn.', 'warning')
         return redirect(url_for('main.login'))
 
-    current_email = session.get('user_email')
-    if current_email not in ADMIN_EMAILS:
+    if session.get('user_email') not in ADMIN_EMAILS:
         flash('Geen toegang! Alleen de beheerder mag hier komen.', 'danger')
         return redirect(url_for('main.index'))
 
@@ -285,9 +321,7 @@ def admin_inventory():
 
 @main.route('/admin/restock', methods=['POST'])
 def restock_ingredient():
-    if 'user_id' not in session:
-        return redirect(url_for('main.login'))
-    if session.get('user_email') not in ADMIN_EMAILS:
+    if 'user_id' not in session or session.get('user_email') not in ADMIN_EMAILS:
         return redirect(url_for('main.index'))
 
     ingredient_id = request.form.get('ingredient_id')
