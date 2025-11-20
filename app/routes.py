@@ -303,7 +303,7 @@ def checkout():
 
 
 # ==============================================================================
-#  5. ADMIN PAGINA'S
+#  5. ADMIN PAGINA'S 
 # ==============================================================================
 
 @main.route('/admin/voorraad')
@@ -312,6 +312,7 @@ def admin_inventory():
         flash('Je moet ingelogd zijn.', 'warning')
         return redirect(url_for('main.login'))
 
+    # Check of het een admin is
     if session.get('user_email') not in ADMIN_EMAILS:
         flash('Geen toegang! Alleen de beheerder mag hier komen.', 'danger')
         return redirect(url_for('main.index'))
@@ -332,10 +333,60 @@ def restock_ingredient():
         if ingredient and amount:
             ingredient.stock_quantity += Decimal(amount)
             db.session.commit()
-            flash(f'Voorraad van {ingredient.name} bijgewerkt!', 'success')
+            flash(f'Voorraad {ingredient.name} bijgevuld (+{amount})', 'success')
     except Exception as e:
         db.session.rollback()
-        flash('Fout bij bijwerken.', 'danger')
         print(f"FOUT: {e}")
+        flash('Fout bij bijwerken.', 'danger')
 
     return redirect(url_for('main.admin_inventory'))
+
+# NIEUWE FUNCTIE: WEGGOOIEN (WASTE)
+@main.route('/admin/waste', methods=['POST'])
+def waste_ingredient():
+    if 'user_id' not in session or session.get('user_email') not in ADMIN_EMAILS:
+        return redirect(url_for('main.index'))
+
+    ingredient_id = request.form.get('ingredient_id')
+    amount = request.form.get('amount')
+
+    try:
+        ingredient = Ingredient.query.get(ingredient_id)
+        if ingredient and amount:
+            # Let op: we trekken het af (-)
+            ingredient.stock_quantity -= Decimal(amount)
+            db.session.commit()
+            flash(f'Afschrijving {ingredient.name} verwerkt (-{amount})', 'warning')
+    except Exception as e:
+        db.session.rollback()
+        print(f"FOUT: {e}")
+        
+    return redirect(url_for('main.admin_inventory'))
+
+# NIEUWE FUNCTIE: ORDER OVERZICHT
+@main.route('/admin/orders')
+def admin_orders():
+    if 'user_id' not in session:
+        return redirect(url_for('main.login'))
+    if session.get('user_email') not in ADMIN_EMAILS:
+        flash('Geen toegang.', 'danger')
+        return redirect(url_for('main.index'))
+
+    # Haal orders op, gesorteerd: eerst de 'pending' orders, daarna op datum
+    orders = Order.query.order_by(Order.status.desc(), Order.pickup_date).all()
+    return render_template('admin_orders.html', orders=orders)
+
+# NIEUWE FUNCTIE: STATUS AANPASSEN
+@main.route('/admin/order/update/<int:order_id>', methods=['POST'])
+def update_order_status(order_id):
+    if 'user_id' not in session or session.get('user_email') not in ADMIN_EMAILS:
+        return redirect(url_for('main.index'))
+    
+    new_status = request.form.get('status')
+    order = Order.query.get_or_404(order_id)
+    
+    order.status = new_status
+    db.session.commit()
+    
+    flash(f'Order #{order.id} status gewijzigd naar {new_status}.', 'success')
+    return redirect(url_for('main.admin_orders'))
