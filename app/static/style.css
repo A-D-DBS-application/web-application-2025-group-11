@@ -461,3 +461,78 @@ h1 {
         width: 100%;
     }
 }
+
+.alert-row {
+    background-color: #fff5f5;
+}
+
+/* --- NIEUWE ADMIN STIJLEN --- */
+
+/* 1. De Header Container (Voorraad & Orders) */
+.admin-header-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center; /* Zorgt dat tekst en knop verticaal in het midden staan */
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #eee;
+}
+
+.admin-header-text h1 {
+    margin-bottom: 5px; /* Minder ruimte onder de titel */
+    font-size: 2rem;
+}
+
+.admin-header-text p {
+    color: #666;
+    margin: 0;
+    font-size: 0.95rem;
+}
+
+/* 2. De 'Naar Orderbeheer' knop (Kleiner & Mooier) */
+.btn-admin-nav {
+    background-color: #593C28; /* Jouw bruine kleur */
+    color: white;
+    padding: 10px 20px;
+    border-radius: 30px; /* Pil-vormig */
+    font-weight: bold;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+    border: 2px solid #593C28;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-admin-nav:hover {
+    background-color: white;
+    color: #593C28;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+
+/* 3. De Actie Knoppen voor Orders (One-click) */
+.btn-status-action {
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: bold;
+    transition: opacity 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: white;
+}
+
+.btn-status-action:hover {
+    opacity: 0.9;
+    transform: scale(1.05);
+}
+
+/* Kleurtjes voor de acties */
+.btn-ready { background-color: #F9A825; } /* Geel/Oranje: Klaarzetten */
+.btn-finish { background-color: #4CAF50; } /* Groen: Opgehaald */
+.btn-cancel { background-color: #E63946; } /* Rood: Annuleren */
+.btn-reset  { background-color: #999; }    /* Grijs: Terugzetten */

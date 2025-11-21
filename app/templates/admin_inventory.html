@@ -3,12 +3,13 @@
 {% block content %}
 <div class="container" style="margin-top: 40px; margin-bottom: 60px;">
     
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
-        <div>
+    <div class="admin-header-container">
+        <div class="admin-header-text">
             <h1>Voorraadbeheer</h1>
-            <p style="color: #666;">Beheer hier de ingrediënten en corrigeer voorraden.</p>
+            <p>Beheer hier de ingrediënten en corrigeer voorraden.</p>
         </div>
-        <a href="{{ url_for('main.admin_orders') }}" class="btn-bestel" style="padding: 10px 20px; width: auto;">
+        
+        <a href="{{ url_for('main.admin_orders') }}" class="btn-admin-nav">
             Naar Orderbeheer &rarr;
         </a>
     </div>
@@ -16,17 +17,17 @@
     <div class="cart-container" style="overflow-x: auto;">
         <table style="width: 100%; border-collapse: collapse; min-width: 800px;">
             <thead>
-                <tr style="background-color: #f9f9f9; border-bottom: 2px solid #eee; text-align: left;">
-                    <th style="padding: 15px; color: #593C28;">Ingrediënt</th>
-                    <th style="padding: 15px; color: #593C28;">Huidige Voorraad</th>
-                    <th style="padding: 15px; color: #593C28;">Eenheid</th>
-                    <th style="padding: 15px; color: #593C28;">Status</th>
-                    <th style="padding: 15px; color: #593C28;">Actie (Bijvullen / Weggooien)</th> 
+                <tr style="border-bottom: 2px solid #eee; text-align: left; color: #593C28;">
+                    <th style="padding: 15px;">Ingrediënt</th>
+                    <th style="padding: 15px;">Huidige Voorraad</th>
+                    <th style="padding: 15px;">Eenheid</th>
+                    <th style="padding: 15px;">Status</th>
+                    <th style="padding: 15px;">Actie (Bijvullen / Weggooien)</th> 
                 </tr>
             </thead>
             <tbody>
                 {% for ingredient in ingredients %}
-                    <tr style="border-bottom: 1px solid #f0f0f0; {% if ingredient.stock_quantity < ingredient.threshold %}background-color: #fff5f5;{% endif %}">
+                    <tr style="border-bottom: 1px solid #f0f0f0;" class="{{ 'alert-row' if ingredient.stock_quantity < ingredient.threshold else '' }}">
                         
                         <td style="padding: 15px;"><strong>{{ ingredient.name }}</strong></td>
                         
