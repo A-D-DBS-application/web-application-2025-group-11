@@ -1,0 +1,73 @@
+<tr style="border-bottom: 1px solid #f0f0f0;">
+    <td style="padding: 15px; color: #888;">
+        {% if order.pickup_date %}
+            <div style="font-weight: bold; color: #333;">{{ order.pickup_date.strftime('%d-%m') }}</div>
+        {% else %}
+            <div style="font-weight: bold; color: #ccc;">Geen datum</div>
+        {% endif %}
+        
+        <small>#{{ order.id }}</small>
+    </td>
+    
+    <td style="padding: 15px;">
+        <strong>{{ order.profile.full_name }}</strong>
+        {% if order.remarks %}
+            <br><small style="color: #E63946;">Note: {{ order.remarks }}</small>
+        {% endif %}
+    </td>
+
+    <td style="padding: 15px;">
+        <ul style="font-size: 0.85em; padding-left: 15px; margin: 0; list-style-type: disc;">
+        {% for item in order.items %}
+            <li>{{ item.quantity }}x {{ item.product.name }}</li>
+        {% endfor %}
+        </ul>
+        <div style="margin-top: 5px; font-weight: bold; color: #593C28;">€ {{ order.total_price }}</div>
+    </td>
+
+    <td style="padding: 15px;">
+        {% if order.status == 'pending' %}
+            <span style="background:#FFF3E0; color: #F57C00; padding: 5px 12px; border-radius: 15px; font-size: 0.8em; font-weight: bold;">In wacht</span>
+        {% elif order.status == 'ready' %}
+            <span style="background:#E8F5E9; color: #2E7D32; padding: 5px 12px; border-radius: 15px; font-size: 0.8em; font-weight: bold;">Staat klaar</span>
+        {% elif order.status == 'picked_up' %}
+            <span style="background:#eee; color:#666; padding: 5px 12px; border-radius: 15px; font-size: 0.8em;">Opgehaald</span>
+        {% elif order.status == 'cancelled' %}
+            <span style="background:#FFEBEE; color:#C62828; padding: 5px 12px; border-radius: 15px; font-size: 0.8em;">Geannuleerd</span>
+        {% endif %}
+    </td>
+
+    <td style="padding: 15px;">
+        <div style="display: flex; gap: 5px; flex-wrap: wrap;">
+            
+            {% if order.status == 'pending' %}
+                <form action="{{ url_for('main.update_order_status', order_id=order.id) }}" method="POST">
+                    <input type="hidden" name="status" value="ready">
+                    <button type="submit" class="btn-status-action btn-ready" title="Zet klaar">
+                        📦 Zet Klaar
+                    </button>
+                </form>
+            
+            {% elif order.status == 'ready' %}
+                <form action="{{ url_for('main.update_order_status', order_id=order.id) }}" method="POST">
+                    <input type="hidden" name="status" value="picked_up">
+                    <button type="submit" class="btn-status-action btn-finish" title="Afronden">
+                        ✅ Afronden
+                    </button>
+                </form>
+
+            {% else %}
+                <span style="color: #ccc;">-</span>
+            {% endif %}
+
+            {% if order.status not in ['cancelled', 'picked_up'] %}
+                <form action="{{ url_for('main.update_order_status', order_id=order.id) }}" method="POST" style="margin-left: auto;">
+                    <input type="hidden" name="status" value="cancelled">
+                    <button type="submit" class="btn-status-action btn-cancel" title="Annuleren" onclick="return confirm('Zeker?');">
+                        ✕
+                    </button>
+                </form>
+            {% endif %}
+        </div>
+    </td>
+</tr>

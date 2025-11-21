@@ -372,9 +372,28 @@ def admin_orders():
         flash('Geen toegang.', 'danger')
         return redirect(url_for('main.index'))
 
-    # Haal orders op, gesorteerd: eerst de 'pending' orders, daarna op datum
-    orders = Order.query.order_by(Order.status.desc(), Order.pickup_date).all()
-    return render_template('admin_orders.html', orders=orders)
+    # 1. Haal ALLE orders op (gesorteerd op datum)
+    all_orders = Order.query.order_by(Order.pickup_date, Order.status.desc()).all()
+    
+    # 2. Splits ze op in "Vandaag" en "De Rest"
+    today = date.today()
+    
+    orders_today = []
+    orders_other = []
+
+    for order in all_orders:
+        # Logica: Als de datum vandaag is EN hij is nog niet opgehaald/geannuleerd -> In het dagoverzicht
+        # (Of als hij 'ready' staat, willen we hem ook vandaag zien, zelfs als de datum gisteren was - vergeten order)
+        is_active_today = (order.pickup_date == today) and (order.status not in ['picked_up', 'cancelled'])
+        
+        if is_active_today:
+            orders_today.append(order)
+        else:
+            orders_other.append(order)
+
+    return render_template('admin_orders.html', 
+                           orders_today=orders_today, 
+                           orders_other=orders_other)
 
 # NIEUWE FUNCTIE: STATUS AANPASSEN
 @main.route('/admin/order/update/<int:order_id>', methods=['POST'])
