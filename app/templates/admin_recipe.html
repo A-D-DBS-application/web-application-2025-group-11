@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container" style="margin-top: 40px; margin-bottom: 60px;">
+    
+    <div class="admin-header-container">
+        <div class="admin-header-text">
+            <h1>Recept: {{ product.name }}</h1>
+            <p>Wat zit er in 1 stuk van dit product? <br>
+               <small style="color: #E63946;">Dit is nodig voor de automatische voorraadaftrek.</small>
+            </p>
+        </div>
+        <a href="{{ url_for('main.admin_products') }}" class="btn-admin-nav" style="background-color: white; color: #593C28; border: 2px solid #eee;">
+            &larr; Terug naar Producten
+        </a>
+    </div>
+
+    <div style="display: flex; gap: 40px; flex-wrap: wrap;">
+        
+        <div style="flex: 1; min-width: 300px;">
+            <div class="cart-container">
+                <h3 style="color: #593C28; margin-bottom: 15px;">Ingrediëntenlijst</h3>
+                
+                {% if product.ingredients %}
+                    <table style="width: 100%; border-collapse: collapse;">
+                        {% for rule in product.ingredients %}
+                        <tr style="border-bottom: 1px solid #eee;">
+                            <td style="padding: 10px;">
+                                <strong>{{ rule.ingredient.name }}</strong>
+                            </td>
+                            <td style="padding: 10px;">
+                                {{ rule.quantity_needed }} {{ rule.ingredient.unit }}
+                            </td>
+                            <td style="padding: 10px; text-align: right;">
+                                <form action="{{ url_for('main.delete_recipe_rule', rule_id=rule.id) }}" method="POST">
+                                    <button type="submit" style="background: none; border: none; color: #E63946; cursor: pointer;">✕</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </table>
+                {% else %}
+                    <p style="color: #888; font-style: italic;">Nog geen ingrediënten gekoppeld. Dit product verbruikt niks uit de voorraad.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div style="flex: 1; min-width: 300px;">
+            <div class="cart-container" style="background-color: #E8F5E9; border: 1px solid #C8E6C9;">
+                <h3 style="color: #2E7D32; margin-bottom: 15px;">+ Toevoegen aan recept</h3>
+                
+                <form action="{{ url_for('main.add_recipe_rule', product_id=product.id) }}" method="POST">
+                    
+                    <div style="margin-bottom: 15px;">
+                        <label style="display:block; font-weight:bold; margin-bottom:5px;">Ingrediënt Naam</label>
+                        <input list="ingredients_list" name="ingredient_name" required placeholder="Typ of kies..." 
+                               style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+                        
+                        <datalist id="ingredients_list">
+                            {% for ing in all_ingredients %}
+                                <option value="{{ ing.name }}">({{ ing.unit }})</option>
+                            {% endfor %}
+                        </datalist>
+                        <small style="color: #666;">Als je een nieuwe naam typt, wordt deze aangemaakt in het magazijn.</small>
+                    </div>
+
+                    <div style="margin-bottom: 15px;">
+                        <label style="display:block; font-weight:bold; margin-bottom:5px;">Hoeveelheid nodig</label>
+                        <input type="number" name="quantity" step="0.01" required placeholder="Bijv. 250" 
+                               style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+                    </div>
+
+                    <div style="margin-bottom: 20px;">
+                        <label style="display:block; font-weight:bold; margin-bottom:5px;">Eenheid (als nieuw)</label>
+                        <select name="unit" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+                            <option value="gram">gram</option>
+                            <option value="ml">ml</option>
+                            <option value="stuks">stuks</option>
+                            <option value="kg">kg</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn-admin-nav" style="width: 100%; justify-content: center; background-color: #2E7D32; border-color: #2E7D32;">
+                        Toevoegen aan Recept
+                    </button>
+                </form>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

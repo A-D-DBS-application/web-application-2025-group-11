@@ -1,9 +1,12 @@
+import os
+import time
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from decimal import Decimal
 from datetime import datetime, timedelta, date
-from .models import Product, Profile, Order, OrderItem, Ingredient, db
+from .models import Product, ProductIngredient, Profile, Order, OrderItem, Ingredient, db
 from . import supabase
 import pandas as pd
+from werkzeug.utils import secure_filename
 
 # ==============================================================================
 #  CONFIGURATIE & BLUEPRINT
@@ -444,27 +447,86 @@ def update_product_price():
         
     return redirect(url_for('main.admin_products'))
 
-# ACTIE 2: Handmatig toevoegen
+# Hulpfunctie om te weten waar we bestanden opslaan
+# Dit verwijst naar de map: app/static/img
+UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'img')
+
 @main.route('/admin/product/add', methods=['POST'])
 def add_product_manual():
     if 'user_id' not in session or session.get('user_email') not in ADMIN_EMAILS:
         return redirect(url_for('main.index'))
     
     try:
+        image_filename = 'logo.png' # Standaard fallback
+        file = request.files.get('image_file')
+        
+        # We maken het product EERST aan om een ID te krijgen (flush)
         new_product = Product(
             name=request.form.get('name'),
             description=request.form.get('description'),
             price=Decimal(request.form.get('price')),
-            category=request.form.get('category'), # Let op: moet 'brood', 'pistoles' of 'koffiekoeken' zijn
-            image_url=request.form.get('image_url') or 'logo.png', # Fallback plaatje
+            category=request.form.get('category'),
+            image_url=image_filename, 
             is_available=True
         )
         db.session.add(new_product)
+        db.session.flush() # Nu heeft new_product een ID, maar staat nog niet vast in DB
+        
+        # Als er een foto is geüpload, slaan we die nu op met het nieuwe ID
+        if file and file.filename != '':
+            original_filename = secure_filename(file.filename)
+            unique_filename = f"product_{new_product.id}_{int(time.time())}_{original_filename}"
+            
+            file.save(os.path.join(UPLOAD_FOLDER, unique_filename))
+            
+            # Update de product regel met de juiste foto naam
+            new_product.image_url = unique_filename
+
         db.session.commit()
         flash(f'Product "{new_product.name}" toegevoegd!', 'success')
+
     except Exception as e:
         db.session.rollback()
+        print(e)
         flash(f'Fout bij toevoegen: {str(e)}', 'danger')
+        
+    return redirect(url_for('main.admin_products'))
+
+@main.route('/admin/product/upload_image', methods=['POST'])
+def upload_product_image():
+    if 'user_id' not in session or session.get('user_email') not in ADMIN_EMAILS:
+        return redirect(url_for('main.index'))
+    
+    product_id = request.form.get('product_id')
+    file = request.files.get('image_file')
+    
+    if not file or file.filename == '':
+        flash('Geen bestand gekozen.', 'warning')
+        return redirect(url_for('main.admin_products'))
+
+    try:
+        product = Product.query.get(product_id)
+        
+        # 1. Maak de bestandsnaam veilig
+        original_filename = secure_filename(file.filename)
+        
+        # 2. Maak de naam UNIEK (Product ID + Huidige Tijd + Originele naam)
+        # Dit voorkomt dat 'foto.jpg' van product A die van product B overschrijft.
+        unique_filename = f"product_{product.id}_{int(time.time())}_{original_filename}"
+        
+        # 3. Opslaan
+        file.save(os.path.join(UPLOAD_FOLDER, unique_filename))
+        
+        # 4. Database updaten
+        product.image_url = unique_filename
+        db.session.commit()
+        
+        flash(f'Foto voor {product.name} succesvol bijgewerkt!', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        print(e)
+        flash('Kon foto niet opslaan.', 'danger')
         
     return redirect(url_for('main.admin_products'))
 
@@ -530,3 +592,78 @@ def delete_product(product_id):
         flash('Kan product niet verwijderen (misschien zit het al in bestellingen?). Zet het anders op "Niet beschikbaar".', 'danger')
         
     return redirect(url_for('main.admin_products'))
+
+# ==============================================================================
+#  7. RECEPTEN BEHEER (De koppeling Product <-> Ingrediënten)
+# ==============================================================================
+
+@main.route('/admin/product/<int:product_id>/recipe')
+def manage_recipe(product_id):
+    if 'user_id' not in session or session.get('user_email') not in ADMIN_EMAILS:
+        return redirect(url_for('main.index'))
+    
+    product = Product.query.get_or_404(product_id)
+    
+    # We halen ook alle bestaande ingrediënten op voor de 'autocomplete' suggesties
+    all_ingredients = Ingredient.query.order_by(Ingredient.name).all()
+    
+    return render_template('admin_recipe.html', product=product, all_ingredients=all_ingredients)
+
+@main.route('/admin/product/<int:product_id>/recipe/add', methods=['POST'])
+def add_recipe_rule(product_id):
+    if 'user_id' not in session or session.get('user_email') not in ADMIN_EMAILS:
+        return redirect(url_for('main.index'))
+    
+    ingredient_name = request.form.get('ingredient_name') # De naam (bv. Bloem)
+    quantity = request.form.get('quantity') # Hoeveelheid nodig
+    unit = request.form.get('unit') # Eenheid (gram, stuks) - alleen nodig bij nieuwe
+    
+    try:
+        # Stap 1: Check of ingrediënt al bestaat (hoofdletterongevoelig)
+        ingredient = Ingredient.query.filter(Ingredient.name.ilike(ingredient_name)).first()
+        
+        # Stap 2: Zo niet, maak het aan!
+        if not ingredient:
+            ingredient = Ingredient(
+                name=ingredient_name,
+                unit=unit,
+                stock_quantity=0, # Begin op 0, bakker moet later bijvullen
+                threshold=1000
+            )
+            db.session.add(ingredient)
+            db.session.flush() # Zorgt dat we meteen een ID krijgen
+            flash(f'Nieuw ingrediënt "{ingredient_name}" aangemaakt in magazijn.', 'info')
+
+        # Stap 3: Koppel aan product (Het Recept)
+        new_rule = ProductIngredient(
+            product_id=product_id,
+            ingredient_id=ingredient.id,
+            quantity_needed=Decimal(quantity)
+        )
+        db.session.add(new_rule)
+        db.session.commit()
+        
+        flash('Ingrediënt toegevoegd aan recept.', 'success')
+
+    except Exception as e:
+        db.session.rollback()
+        print(e)
+        flash('Fout bij opslaan.', 'danger')
+        
+    return redirect(url_for('main.manage_recipe', product_id=product_id))
+
+@main.route('/admin/product/recipe/delete/<int:rule_id>', methods=['POST'])
+def delete_recipe_rule(rule_id):
+    if 'user_id' not in session or session.get('user_email') not in ADMIN_EMAILS:
+        return redirect(url_for('main.index'))
+        
+    try:
+        rule = ProductIngredient.query.get_or_404(rule_id)
+        product_id = rule.product_id
+        db.session.delete(rule)
+        db.session.commit()
+        flash('Ingrediënt verwijderd uit recept.', 'success')
+        return redirect(url_for('main.manage_recipe', product_id=product_id))
+    except:
+        db.session.rollback()
+        return redirect(url_for('main.admin_products'))
