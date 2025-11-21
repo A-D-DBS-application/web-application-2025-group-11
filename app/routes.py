@@ -3,6 +3,7 @@ from decimal import Decimal
 from datetime import datetime, timedelta, date
 from .models import Product, Profile, Order, OrderItem, Ingredient, db
 from . import supabase
+import pandas as pd
 
 # ==============================================================================
 #  CONFIGURATIE & BLUEPRINT
@@ -409,3 +410,123 @@ def update_order_status(order_id):
     
     flash(f'Order #{order.id} status gewijzigd naar {new_status}.', 'success')
     return redirect(url_for('main.admin_orders'))
+
+# ==============================================================================
+#  6. ADMIN PRODUCT BEHEER 
+# ==============================================================================
+
+@main.route('/admin/products')
+def admin_products():
+    if 'user_id' not in session or session.get('user_email') not in ADMIN_EMAILS:
+        return redirect(url_for('main.index'))
+    
+    # Haal alle producten op, gesorteerd op categorie
+    products = Product.query.order_by(Product.category, Product.name).all()
+    return render_template('admin_products.html', products=products)
+
+# ACTIE 1: Prijs updaten
+@main.route('/admin/product/update_price', methods=['POST'])
+def update_product_price():
+    if 'user_id' not in session or session.get('user_email') not in ADMIN_EMAILS:
+        return redirect(url_for('main.index'))
+    
+    product_id = request.form.get('product_id')
+    new_price = request.form.get('price')
+    
+    try:
+        product = Product.query.get(product_id)
+        product.price = Decimal(new_price)
+        db.session.commit()
+        flash(f'Prijs van {product.name} aangepast naar € {new_price}', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash('Er ging iets mis bij het opslaan.', 'danger')
+        
+    return redirect(url_for('main.admin_products'))
+
+# ACTIE 2: Handmatig toevoegen
+@main.route('/admin/product/add', methods=['POST'])
+def add_product_manual():
+    if 'user_id' not in session or session.get('user_email') not in ADMIN_EMAILS:
+        return redirect(url_for('main.index'))
+    
+    try:
+        new_product = Product(
+            name=request.form.get('name'),
+            description=request.form.get('description'),
+            price=Decimal(request.form.get('price')),
+            category=request.form.get('category'), # Let op: moet 'brood', 'pistoles' of 'koffiekoeken' zijn
+            image_url=request.form.get('image_url') or 'logo.png', # Fallback plaatje
+            is_available=True
+        )
+        db.session.add(new_product)
+        db.session.commit()
+        flash(f'Product "{new_product.name}" toegevoegd!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Fout bij toevoegen: {str(e)}', 'danger')
+        
+    return redirect(url_for('main.admin_products'))
+
+# ACTIE 3: Excel Import
+@main.route('/admin/product/import', methods=['POST'])
+def import_products_excel():
+    if 'user_id' not in session or session.get('user_email') not in ADMIN_EMAILS:
+        return redirect(url_for('main.index'))
+    
+    file = request.files.get('file')
+    if not file:
+        flash('Geen bestand geselecteerd', 'danger')
+        return redirect(url_for('main.admin_products'))
+    
+    try:
+        # Lees de Excel file met Pandas
+        df = pd.read_excel(file)
+        
+        count = 0
+        for index, row in df.iterrows():
+            # Check of product al bestaat (op basis van naam) om dubbels te voorkomen
+            existing = Product.query.filter_by(name=row['name']).first()
+            if not existing:
+                new_product = Product(
+                    name=row['name'],
+                    description=row.get('description', ''),
+                    price=Decimal(row['price']),
+                    category=row['category'].lower(), # Zeker zijn van kleine letters
+                    image_url=row.get('image_url', 'logo.png'),
+                    is_available=True
+                )
+                db.session.add(new_product)
+                count += 1
+        
+        db.session.commit()
+        flash(f'Succesvol {count} nieuwe producten geïmporteerd uit Excel!', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        print(e)
+        flash('Fout bij inlezen Excel. Controleer de kolommen (name, price, category, description).', 'danger')
+        
+    return redirect(url_for('main.admin_products'))
+
+# ACTIE 4: Product Verwijderen
+@main.route('/admin/product/delete/<int:product_id>', methods=['POST'])
+def delete_product(product_id):
+    if 'user_id' not in session or session.get('user_email') not in ADMIN_EMAILS:
+        return redirect(url_for('main.index'))
+    
+    try:
+        product = Product.query.get_or_404(product_id)
+        # Eerst afhankelijke items verwijderen (recepten)
+        # Let op: als er al orders zijn met dit product, kan dit een error geven in SQL
+        # Voor nu doen we een 'soft delete' door hem op niet beschikbaar te zetten, 
+        # OF we verwijderen hem hard als er geen orders zijn.
+        
+        db.session.delete(product)
+        db.session.commit()
+        flash('Product verwijderd.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash('Kan product niet verwijderen (misschien zit het al in bestellingen?). Zet het anders op "Niet beschikbaar".', 'danger')
+        
+    return redirect(url_for('main.admin_products'))

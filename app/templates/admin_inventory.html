@@ -9,9 +9,14 @@
             <p>Beheer hier de ingrediënten en corrigeer voorraden.</p>
         </div>
         
-        <a href="{{ url_for('main.admin_orders') }}" class="btn-admin-nav">
-            Naar Orderbeheer &rarr;
-        </a>
+        <div style="display: flex; gap: 10px;">
+            <a href="{{ url_for('main.admin_orders') }}" class="btn-admin-nav">
+                Naar Orders &rarr;
+            </a>
+            <a href="{{ url_for('main.admin_products') }}" class="btn-admin-nav">
+                Productbeheer &rarr;
+            </a>
+        </div>
     </div>
 
     <div class="cart-container" style="overflow-x: auto;">
@@ -22,7 +27,7 @@
                     <th style="padding: 15px;">Huidige Voorraad</th>
                     <th style="padding: 15px;">Eenheid</th>
                     <th style="padding: 15px;">Status</th>
-                    <th style="padding: 15px;">Actie (Bijvullen / Weggooien)</th> 
+                    <th style="padding: 15px;">Actie</th> 
                 </tr>
             </thead>
             <tbody>
@@ -52,10 +57,8 @@
                                 
                                 <form action="{{ url_for('main.restock_ingredient') }}" method="POST" style="display:flex; align-items: center; gap:5px;">
                                     <input type="hidden" name="ingredient_id" value="{{ ingredient.id }}">
-                                    
                                     <input type="number" name="amount" placeholder="+" min="1" required 
                                            style="width: 60px; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
-                                    
                                     <button type="submit" title="Voorraad toevoegen" 
                                             style="background: #4CAF50; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 1.1em;">
                                         +
@@ -66,10 +69,8 @@
 
                                 <form action="{{ url_for('main.waste_ingredient') }}" method="POST" style="display:flex; align-items: center; gap:5px;">
                                     <input type="hidden" name="ingredient_id" value="{{ ingredient.id }}">
-                                    
                                     <input type="number" name="amount" placeholder="-" min="1" required 
                                            style="width: 60px; padding: 8px; border: 1px solid #E63946; border-radius: 4px; color: #E63946;">
-                                    
                                     <button type="submit" title="Afschrijven (verspilling/over datum)" 
                                             style="background: #E63946; color: white; border: none; padding: 8px 10px; border-radius: 4px; cursor: pointer;">
                                         🗑️

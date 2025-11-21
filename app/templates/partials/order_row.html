@@ -3,7 +3,7 @@
         {% if order.pickup_date %}
             <div style="font-weight: bold; color: #333;">{{ order.pickup_date.strftime('%d-%m') }}</div>
         {% else %}
-            <div style="font-weight: bold; color: #ccc;">Geen datum</div>
+            <div style="font-weight: bold; color: #ccc;">Datum onbekend</div>
         {% endif %}
         
         <small>#{{ order.id }}</small>
@@ -71,3 +71,4 @@
         </div>
     </td>
 </tr>
+

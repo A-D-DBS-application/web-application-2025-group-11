@@ -8,9 +8,15 @@
             <h1>Orderbeheer</h1>
             <p>Overzicht van actieve bestellingen.</p>
         </div>
-        <a href="{{ url_for('main.admin_inventory') }}" class="btn-admin-nav" style="background-color: white; color: #593C28; border: 2px solid #eee;">
-            &larr; Terug naar Voorraad
-        </a>
+        
+        <div style="display: flex; gap: 10px;">
+            <a href="{{ url_for('main.admin_inventory') }}" class="btn-admin-nav" style="background-color: white; color: #593C28; border: 2px solid #eee;">
+                &larr; Voorraad
+            </a>
+            <a href="{{ url_for('main.admin_products') }}" class="btn-admin-nav">
+                Productbeheer &rarr;
+            </a>
+        </div>
     </div>
 
     <div style="margin-bottom: 40px;">
@@ -23,11 +29,11 @@
                 <table style="width: 100%; border-collapse: collapse;">
                     <thead>
                         <tr style="border-bottom: 2px solid #eee; text-align: left; color: #593C28; background-color: #fff5f5;">
-                            <th style="padding: 15px;">Tijd/ID</th>
+                            <th style="padding: 15px;">Datum/ID</th>
                             <th style="padding: 15px;">Klant</th>
                             <th style="padding: 15px;">Bestelling</th>
                             <th style="padding: 15px;">Status</th>
-                            <th style="padding: 15px;">SNEL ACTIE</th>
+                            <th style="padding: 15px;">Actie</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -43,7 +49,6 @@
             </div>
         {% endif %}
     </div>
-
 
     <div>
         <h3 style="color: #593C28; margin-bottom: 15px;">Alle andere bestellingen</h3>
