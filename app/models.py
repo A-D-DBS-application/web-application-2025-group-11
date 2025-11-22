@@ -20,7 +20,7 @@ class Product(db.Model):
     category = db.Column(db.Text)
     is_available = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime(timezone=True), server_default=func.now())
-    ingredients = db.relationship('ProductIngredient', backref='product', lazy=True)
+    ingredients = db.relationship('ProductIngredient', backref='product', lazy=True, cascade='all, delete-orphan')
     
     # --- Relaties ---
     order_items = db.relationship('OrderItem', backref='product', lazy=True)
@@ -93,7 +93,7 @@ class OrderItem(db.Model):
     unit_price_at_order = db.Column(db.Numeric(10, 2), nullable=False)
 
     # --- Foreign Keys ---
-    order_id = db.Column(db.BigInteger, db.ForeignKey('orders.id'), nullable=False)
+    order_id = db.Column(db.BigInteger, db.ForeignKey('orders.id', ondelete='CASCADE'), nullable=False)
     product_id = db.Column(db.BigInteger, db.ForeignKey('products.id'), nullable=False)
 
     # --- Methoden ---
@@ -123,7 +123,7 @@ class ProductIngredient(db.Model):
     __tablename__ = 'product_ingredients'
 
     id = db.Column(db.BigInteger, primary_key=True)
-    product_id = db.Column(db.BigInteger, db.ForeignKey('products.id'), nullable=False)
+    product_id = db.Column(db.BigInteger, db.ForeignKey('products.id', ondelete='CASCADE'), nullable=False)
     ingredient_id = db.Column(db.BigInteger, db.ForeignKey('ingredients.id'), nullable=False)
     quantity_needed = db.Column(db.Numeric(10, 2), nullable=False)
 
