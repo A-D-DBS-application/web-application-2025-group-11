@@ -23,7 +23,7 @@ multidict==6.7.0
 numpy==2.3.5
 openpyxl==3.1.5
 packaging==25.0
-pandas==2.3.3
+pandas
 postgrest==2.24.0
 propcache==0.4.1
 psycopg==3.2.12
