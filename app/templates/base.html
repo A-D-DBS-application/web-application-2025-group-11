@@ -79,7 +79,6 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Werking + en - knoppen
             document.querySelectorAll('.bestel-groep').forEach(function(group) {
                 const input = group.querySelector('.quantity-input');
                 const btnMinus = group.querySelector('.minus');
@@ -99,7 +98,6 @@
                 }
             }); 
             
-            // Werking verwijderknoppen in cart (voor cart.html)
             document.querySelectorAll('.remove-from-cart-btn').forEach(button => {
                 button.addEventListener('click', function() {
                     const productId = this.dataset.productId;
