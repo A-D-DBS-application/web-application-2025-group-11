@@ -1,25 +1,40 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container" style="margin-top: 40px;">
+<div class="container" style="margin-top: 40px; margin-bottom: 60px;">
     <h1>Mijn Winkelwagen</h1>
 
     {% if cart_items %}
     <div style="display: flex; gap: 40px; flex-wrap: wrap;">
         <div style="flex: 2; min-width: 300px;">
-            <div style="background: #fff; border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+            <div class="cart-container">
                 {% for item in cart_items %}
                 <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding: 15px 0;">
                     <div style="display: flex; align-items: center; gap: 20px;">
                         <img src="{{ url_for('static', filename='img/' + item.product.image_url) }}" alt="{{ item.product.name }}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 6px;">
                         <div>
-                            <h4 style="margin: 0;">{{ item.product.name }}</h4>
-                            <p style="margin: 0; color: #666;">Aantal: {{ item.quantity }}x</p>
+                            <h4 style="margin: 0; color: #593C28;">{{ item.product.name }}</h4>
+                            
+                            <div style="display: flex; align-items: center; gap: 10px; margin-top: 5px;">
+                                <form action="{{ url_for('main.decrease_from_cart', product_id=item.product.id) }}" method="POST" style="margin:0;">
+                                    <button type="submit" style="background: #eee; border: 1px solid #ccc; width: 25px; height: 25px; border-radius: 4px; cursor: pointer; color: #333; font-weight: bold;">-</button>
+                                </form>
+                                
+                                <p style="margin: 0; color: #666; font-weight: bold; min-width: 20px; text-align: center;">{{ item.quantity }}</p>
+                            
+                                <form action="{{ url_for('main.add_to_cart', product_id=item.product.id) }}" method="POST" style="margin:0;">
+                                    <input type="hidden" name="quantity" value="1">
+                                    <button type="submit" style="background: #eee; border: 1px solid #ccc; width: 25px; height: 25px; border-radius: 4px; cursor: pointer; color: #333; font-weight: bold;">+</button>
+                                </form>
+                            </div>
+
                         </div>
                     </div>
                     <div style="display: flex; align-items: center; gap: 20px;">
-                        <span style="font-weight: bold;">€ {{ item.total_price }}</span>
-                        <button class="remove-from-cart-btn" data-product-id="{{ item.product.id }}" style="background: none; border: none; color: #e63946; cursor: pointer; font-size: 1.2em;">×</button>
+                        <span style="font-weight: bold; color: #593C28;">€ {{ item.total_price }}</span>
+                        <form action="{{ url_for('main.remove_from_cart', product_id=item.product.id) }}" method="POST" onsubmit="return confirm('Verwijderen?');">
+                            <button type="submit" class="remove-from-cart-btn">×</button>
+                        </form>
                     </div>
                 </div>
                 {% endfor %}
@@ -31,8 +46,8 @@
         </div>
 
         <div style="flex: 1; min-width: 300px;">
-            <div style="background: #fff4e6; border-radius: 8px; padding: 25px;">
-                <h3>Afrekenen</h3>
+            <div class="checkout-container">
+                <h3 style="color: #593C28; margin-bottom: 20px;">Afrekenen</h3>
                 <form action="{{ url_for('main.checkout') }}" method="POST">
                     <div style="margin-bottom: 15px;">
                         <label for="pickup_date" style="display: block; margin-bottom: 5px; font-weight: bold;">Gewenste ophaaldatum:</label>
@@ -51,7 +66,7 @@
                         <textarea name="remarks" id="remarks" rows="3" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px;"></textarea>
                     </div>
 
-                    <button type="submit" class="btn-bestel" style="width: 100%; padding: 12px; font-size: 1.1em;">Betalen & Bestellen</button>
+                    <button type="submit" class="btn-bestel" style="width: 100%; padding: 12px; font-size: 1.1em;">BETALEN & BESTELLEN</button>
                 </form>
             </div>
         </div>
@@ -62,6 +77,5 @@
             <a href="{{ url_for('main.index') }}" class="btn-bestel">Ga terug naar de winkel</a>
         </div>
     {% endif %}
-
 </div>
 {% endblock %}

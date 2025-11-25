@@ -8,9 +8,12 @@
             <h1>Productbeheer</h1>
             <p>Prijzen wijzigen, nieuwe producten toevoegen of importeren.</p>
         </div>
-        <a href="{{ url_for('main.admin_inventory') }}" class="btn-admin-nav">
-            &larr; Terug naar Voorraad
-        </a>
+        
+        <div style="display: flex; gap: 8px;">
+            <a href="{{ url_for('main.admin_inventory') }}" class="btn-admin-nav">Voorraad</a>
+            <a href="{{ url_for('main.admin_products') }}" class="btn-admin-nav" style="background-color: white; color: #593C28;">Producten</a>
+            <a href="{{ url_for('main.admin_orders') }}" class="btn-admin-nav">Orders</a>
+        </div>
     </div>
 
     <div style="display: flex; gap: 40px; flex-wrap: wrap;">
@@ -30,11 +33,9 @@
                     <tbody>
                         {% for product in products %}
                         <tr style="border-bottom: 1px solid #f0f0f0;">
-                            
                             <td style="padding: 10px; vertical-align: top;">
                                 <div style="display: flex; flex-direction: column; gap: 5px; align-items: center;">
                                     <img src="{{ url_for('static', filename='img/' + product.image_url) }}" width="50" height="50" style="border-radius: 5px; object-fit: cover; border: 1px solid #ddd;">
-                                    
                                     <form action="{{ url_for('main.upload_product_image') }}" method="POST" enctype="multipart/form-data">
                                         <input type="hidden" name="product_id" value="{{ product.id }}">
                                         <label style="cursor: pointer; font-size: 0.7em; color: #2196F3; text-decoration: underline;">
@@ -44,12 +45,13 @@
                                     </form>
                                 </div>
                             </td>
-
                             <td style="padding: 10px;">
                                 <strong>{{ product.name }}</strong><br>
                                 <small style="color: #888; text-transform: uppercase;">{{ product.category }}</small>
+                                {% if product.calculated_allergens %}
+                                    <br><small style="color: #E63946;">⚠️ {{ product.calculated_allergens }}</small>
+                                {% endif %}
                             </td>
-
                             <td style="padding: 10px;">
                                 <form action="{{ url_for('main.update_product_price') }}" method="POST" style="display: flex; align-items: center; gap: 5px;">
                                     <input type="hidden" name="product_id" value="{{ product.id }}">
@@ -57,14 +59,9 @@
                                     <button type="submit" title="Opslaan" style="background: none; border: none; cursor: pointer;">💾</button>
                                 </form>
                             </td>
-
                             <td style="padding: 10px;">
                                 <div style="display: flex; gap: 15px; align-items: center;">
-                                    
-                                    <a href="{{ url_for('main.manage_recipe', product_id=product.id) }}" title="Recept / Ingrediënten beheren" style="text-decoration: none; font-size: 1.5em;">
-                                        📜
-                                    </a>
-
+                                    <a href="{{ url_for('main.manage_recipe', product_id=product.id) }}" title="Recept beheren" style="text-decoration: none; font-size: 1.5em;">📜</a>
                                     <form action="{{ url_for('main.delete_product', product_id=product.id) }}" method="POST" onsubmit="return confirm('Weet je zeker dat je {{ product.name }} wilt verwijderen?');">
                                         <button type="submit" title="Product verwijderen" style="background: none; border: none; color: #E63946; cursor: pointer; font-size: 1.2em;">✕</button>
                                     </form>
@@ -78,7 +75,6 @@
         </div>
 
         <div style="flex: 1; min-width: 300px; display: flex; flex-direction: column; gap: 30px;">
-            
             <div class="cart-container">
                 <h3 style="color: #593C28; margin-bottom: 15px;">+ Nieuw Product</h3>
                 <form action="{{ url_for('main.add_product_manual') }}" method="POST" enctype="multipart/form-data">
@@ -102,6 +98,10 @@
                         <label>Beschrijving</label>
                         <textarea name="description" rows="2" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;"></textarea>
                     </div>
+                    <div style="margin-bottom: 10px;">
+                        <label>Allergenen (Optioneel)</label>
+                        <input type="text" name="allergens" placeholder="bv. Gluten, Melk, Noten" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                    </div>
                     <div style="margin-bottom: 15px;">
                         <label>Foto uploaden</label>
                         <input type="file" name="image_file" accept="image/*" style="width: 100%; font-size: 0.9em;">
@@ -114,8 +114,7 @@
                 <h3 style="color: #2E7D32; margin-bottom: 15px;">📂 Excel Import</h3>
                 <p style="font-size: 0.85rem; color: #555; margin-bottom: 15px;">
                     Upload een .xlsx bestand met kolommen: <br>
-                    <em>name, price, category, description</em><br>
-                    <span style="font-size: 0.8em; color: #2E7D32;">(Upload foto's daarna via de lijst)</span>
+                    <em>name, price, category, description, allergens</em>
                 </p>
                 <form action="{{ url_for('main.import_products_excel') }}" method="POST" enctype="multipart/form-data">
                     <input type="file" name="file" accept=".xlsx" required style="margin-bottom: 10px; width: 100%;">
@@ -124,7 +123,6 @@
                     </button>
                 </form>
             </div>
-
         </div>
     </div>
 </div>

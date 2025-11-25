@@ -18,14 +18,38 @@ class Product(db.Model):
     price = db.Column(db.Numeric(10, 2), nullable=False)
     image_url = db.Column(db.Text)
     category = db.Column(db.Text)
+    allergens = db.Column(db.Text) # Handmatige allergenen (fallback)
     is_available = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime(timezone=True), server_default=func.now())
-    ingredients = db.relationship('ProductIngredient', backref='product', lazy=True, cascade='all, delete-orphan')
     
     # --- Relaties ---
+    ingredients = db.relationship('ProductIngredient', backref='product', lazy=True, cascade='all, delete-orphan')
     order_items = db.relationship('OrderItem', backref='product', lazy=True)
 
-    # --- Methoden ---
+    # --- SLIMME ALLERGENEN FUNCTIE ---
+    @property
+    def calculated_allergens(self):
+        found_allergens = set()
+        
+        # 1. Check Recept (Ingrediënten koppeling)
+        for rule in self.ingredients:
+            if rule.ingredient.allergen_info:
+                parts = rule.ingredient.allergen_info.split(',')
+                for part in parts:
+                    found_allergens.add(part.strip())
+        
+        # 2. Check Handmatig veld (Excel/Admin input)
+        if self.allergens:
+            parts = self.allergens.split(',')
+            for part in parts:
+                found_allergens.add(part.strip())
+
+        # 3. Geef resultaat
+        if not found_allergens:
+            return None
+            
+        return ", ".join(sorted(found_allergens))
+
     def __repr__(self):
         return f'<Product {self.name}>'
 
@@ -37,16 +61,13 @@ class Product(db.Model):
 class Profile(db.Model):
     __tablename__ = 'profiles'
 
-    # --- Kolommen ---
     id = db.Column(UUID(as_uuid=True), primary_key=True)
     full_name = db.Column(db.Text)
     phone_number = db.Column(db.Text)
     updated_at = db.Column(db.DateTime(timezone=True), onupdate=func.now())
 
-    # --- Relaties ---
     orders = db.relationship('Order', backref='profile', lazy=True)
 
-    # --- Methoden ---
     def __repr__(self):
         return f'<Profile {self.full_name}>'
 
@@ -58,24 +79,18 @@ class Profile(db.Model):
 class Order(db.Model):
     __tablename__ = 'orders'
 
-    # --- Kolommen ---
     id = db.Column(db.BigInteger, primary_key=True)
     status = db.Column(db.Text, nullable=False, default='pending')
     total_price = db.Column(db.Numeric(10, 2), nullable=False)
     pickup_date = db.Column(db.Date)
     remarks = db.Column(db.Text)
     
-    # --- Timestamps ---
     created_at = db.Column(db.DateTime(timezone=True), server_default=func.now())
     order_date = db.Column(db.DateTime(timezone=True), server_default=func.now())
 
-    # --- Foreign Keys ---
     user_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey('profiles.id'), nullable=False)
-
-    # --- Relaties ---
     items = db.relationship('OrderItem', backref='order', lazy=True, cascade='all, delete-orphan')
 
-    # --- Methoden ---
     def __repr__(self):
         return f'<Order {self.id}>'
 
@@ -87,16 +102,13 @@ class Order(db.Model):
 class OrderItem(db.Model):
     __tablename__ = 'order_items'
 
-    # --- Kolommen ---
     id = db.Column(db.BigInteger, primary_key=True)
     quantity = db.Column(db.Integer, nullable=False, default=1)
     unit_price_at_order = db.Column(db.Numeric(10, 2), nullable=False)
 
-    # --- Foreign Keys ---
     order_id = db.Column(db.BigInteger, db.ForeignKey('orders.id', ondelete='CASCADE'), nullable=False)
     product_id = db.Column(db.BigInteger, db.ForeignKey('products.id'), nullable=False)
 
-    # --- Methoden ---
     def __repr__(self):
         return f'<OrderItem {self.id} (Order {self.order_id})>'
     
@@ -104,21 +116,19 @@ class OrderItem(db.Model):
 # ERP SYSTEEM: VOORRAAD & RECEPTEN
 # =========================================
 
-# 5. Ingredient Model (Het Magazijn)
 class Ingredient(db.Model):
     __tablename__ = 'ingredients'
 
     id = db.Column(db.BigInteger, primary_key=True)
     name = db.Column(db.Text, nullable=False)
     stock_quantity = db.Column(db.Numeric(10, 2), nullable=False, default=0)
-    unit = db.Column(db.Text, nullable=False) # bijv. 'gram', 'ml'
-    threshold = db.Column(db.Numeric(10, 2), default=1000) # Waarschuwingsgrens
+    unit = db.Column(db.Text, nullable=False)
+    threshold = db.Column(db.Numeric(10, 2), default=1000)
+    allergen_info = db.Column(db.Text) # Opslag voor 'Gluten', 'Melk', etc.
 
     def __repr__(self):
-        return f'<Ingredient {self.name} - Voorraad: {self.stock_quantity} {self.unit}>'
+        return f'<Ingredient {self.name}>'
 
-# 6. ProductIngredient Model (Het Recept)
-# Dit is de koppeling: Hoeveel van X zit er in Y?
 class ProductIngredient(db.Model):
     __tablename__ = 'product_ingredients'
 
@@ -127,8 +137,7 @@ class ProductIngredient(db.Model):
     ingredient_id = db.Column(db.BigInteger, db.ForeignKey('ingredients.id'), nullable=False)
     quantity_needed = db.Column(db.Numeric(10, 2), nullable=False)
 
-    # Relatie: Hiermee kun je vanuit een receptregel direct bij de details van het ingrediënt
     ingredient = db.relationship('Ingredient')
 
     def __repr__(self):
-        return f'<ReceptRegel: {self.quantity_needed} van {self.ingredient_id} voor Product {self.product_id}>'
+        return f'<ReceptRegel: {self.quantity_needed} van {self.ingredient_id}>'

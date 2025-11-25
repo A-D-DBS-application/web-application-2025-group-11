@@ -2,40 +2,67 @@
 
 {% block content %}
 <div class="container" style="margin-top: 50px; max-width: 900px;">
-    <h1 style="margin-bottom: 30px; color: #6D4C41;">Mijn Bestellingen</h1>
+    <h1 style="margin-bottom: 30px;">Mijn Bestellingen</h1>
     
     {% if orders %}
         {% for order in orders %}
-        <div class="card" style="border: 1px solid #ddd; border-radius: 8px; margin-bottom: 20px; overflow: hidden; background: #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
-            <div class="card-header" style="background-color: #f8f9fa; padding: 15px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center;">
+        <div class="cart-container" style="padding: 0; overflow: hidden;"> <div style="background-color: #f9f9f9; padding: 15px 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
                 <div>
-                    <strong>Bestelling #{{ order.id }}</strong>
+                    <strong style="color: #593C28;">Bestelling #{{ order.id }}</strong>
                     <span style="color: #666; font-size: 0.9em; margin-left: 10px;">
                         geplaatst op {{ order.created_at.strftime('%d-%m-%Y') }}
                     </span>
                 </div>
-                <span style="background: #A67B5B; color: white; padding: 4px 10px; border-radius: 15px; font-size: 0.8em; text-transform: uppercase;">
-                    {{ order.status }}
+                
+                <span>
+                    {% if order.status == 'pending' %}
+                        <span style="background:#FFF3E0; color: #F57C00; padding: 5px 12px; border-radius: 15px; font-size: 0.8em; font-weight: bold;">
+                            In verwerking
+                        </span>
+                    {% elif order.status == 'ready' %}
+                        <span style="background:#E8F5E9; color: #2E7D32; padding: 5px 12px; border-radius: 15px; font-size: 0.8em; font-weight: bold;">
+                            Staat klaar
+                        </span>
+                    {% elif order.status == 'picked_up' %}
+                        <span style="background:#4CAF50; color: white; padding: 5px 12px; border-radius: 15px; font-size: 0.8em; font-weight: bold;">
+                            Opgehaald
+                        </span>
+                    {% elif order.status == 'cancelled' %}
+                        <span style="background:#FFEBEE; color:#C62828; padding: 5px 12px; border-radius: 15px; font-size: 0.8em; font-weight: bold;">
+                            Geannuleerd
+                        </span>
+                    {% else %}
+                        <span style="background:#eee; color:#666; padding: 5px 12px; border-radius: 15px; font-size: 0.8em;">
+                            {{ order.status }}
+                        </span>
+                    {% endif %}
                 </span>
             </div>
-            <div class="card-body" style="padding: 20px;">
+
+            <div style="padding: 20px;">
                 <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
                     <div>
-                        <strong>Ophaaldatum:</strong> {{ order.pickup_date }}<br>
+                        <strong>Ophaaldatum:</strong> 
+                        {% if order.pickup_date %}
+                            {{ order.pickup_date.strftime('%d-%m-%Y') }}
+                        {% else %}
+                            Onbekend
+                        {% endif %}
+                        <br>
                         {% if order.remarks %}
                             <em style="color: #888;">Opmerking: {{ order.remarks }}</em>
                         {% endif %}
                     </div>
-                    <div style="text-align: right; font-size: 1.2em; font-weight: bold; color: #6D4C41;">
+                    <div style="text-align: right; font-size: 1.2em; font-weight: bold; color: #593C28;">
                         Totaal: &euro; {{ order.total_price }}
                     </div>
                 </div>
                 
-                <hr style="border-top: 1px dashed #ccc;">
+                <hr style="border-top: 1px dashed #eee; margin: 15px 0;">
                 
-                <ul style="list-style: none; padding: 0; margin-top: 10px;">
+                <ul style="list-style: none; padding: 0;">
                     {% for item in order.items %}
-                        <li style="padding: 5px 0; display: flex; justify-content: space-between; border-bottom: 1px solid #eee;">
+                        <li style="padding: 5px 0; display: flex; justify-content: space-between; color: #555;">
                             <span>{{ item.quantity }}x {{ item.product.name }}</span>
                             <span>&euro; {{ item.unit_price_at_order }} /st</span>
                         </li>
@@ -45,10 +72,10 @@
         </div>
         {% endfor %}
     {% else %}
-        <div style="text-align: center; padding: 40px; background: #f9f9f9; border-radius: 10px;">
+        <div class="empty-cart-container">
             <h3>Je hebt nog geen bestellingen geplaatst.</h3>
             <p>Heb je honger? Neem snel een kijkje in ons assortiment!</p>
-            <a href="{{ url_for('main.index') }}" style="background-color: #A67B5B; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 15px;">Naar de winkel</a>
+            <a href="{{ url_for('main.index') }}" class="btn-bestel">Naar de winkel</a>
         </div>
     {% endif %}
 </div>

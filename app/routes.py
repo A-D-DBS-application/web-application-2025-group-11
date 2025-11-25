@@ -190,6 +190,28 @@ def add_to_cart(product_id):
     flash(f'{quantity}x {product.name} toegevoegd aan je mandje!', 'success')
     return redirect(url_for('main.index'))
 
+@main.route('/cart/decrease/<int:product_id>', methods=['POST'])
+def decrease_from_cart(product_id):
+    cart = session.get('cart', {})
+    product_id_str = str(product_id)
+
+    if product_id_str in cart:
+        current_quantity = cart[product_id_str]
+        
+        if current_quantity > 1:
+            # Als er meer dan 1 is, eentje eraf
+            cart[product_id_str] = current_quantity - 1
+            flash('Aantal bijgewerkt.', 'success')
+        else:
+            # Als het 1 is, verwijderen we hem (of je kan dit blokkeren)
+            del cart[product_id_str]
+            flash('Product uit winkelwagen verwijderd.', 'success')
+            
+        session['cart'] = cart
+        session.modified = True
+    
+    return redirect(url_for('main.view_cart'))
+
 @main.route('/cart/remove/<int:product_id>', methods=['POST'])
 def remove_from_cart(product_id):
     cart = session.get('cart', {})

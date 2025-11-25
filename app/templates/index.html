@@ -5,11 +5,11 @@
     <div class="container hero-content">
         <div class="hero-text">
             <h1>
-    Welkom bij Bakkerij Oewist<br>
-    <span style="font-size: 0.7em; font-weight: 600; opacity: 0.9;">
-        waar geur, smaak en gezelligheid samenkomen!
-    </span>
-</h1>
+                Welkom bij Bakkerij Oewist<br>
+                <span style="font-size: 0.7em; font-weight: 600; opacity: 0.9;">
+                    waar geur, smaak en gezelligheid samenkomen!
+                </span>
+            </h1>
             <p>In het hart van Knesselaere vind je Bakkerij Oewist, een plek
                 waar elke dag begint met de geur van versgebakken
                 brood, krokante koffiekoeken en ambachtelijke taarten.
@@ -36,25 +36,25 @@
     <div class="filter-buttons">
         <a href="{{ url_for('main.index') }}" 
            class="filter-btn {{ 'active' if not current_category or current_category == 'alles' else '' }}"
-           style="text-decoration: none; display: inline-block; text-align: center; line-height: normal; padding: 10px 20px;">
+           style="text-decoration: none;">
            alles
         </a>
         
         <a href="{{ url_for('main.index', category='brood') }}" 
            class="filter-btn {{ 'active' if current_category == 'brood' else '' }}"
-           style="text-decoration: none; display: inline-block; text-align: center; line-height: normal; padding: 10px 20px;">
+           style="text-decoration: none;">
            brood
         </a>
         
         <a href="{{ url_for('main.index', category='pistoles') }}" 
            class="filter-btn {{ 'active' if current_category == 'pistoles' else '' }}"
-           style="text-decoration: none; display: inline-block; text-align: center; line-height: normal; padding: 10px 20px;">
+           style="text-decoration: none;">
            pistolets
         </a>
         
         <a href="{{ url_for('main.index', category='koffiekoeken') }}" 
            class="filter-btn {{ 'active' if current_category == 'koffiekoeken' else '' }}"
-           style="text-decoration: none; display: inline-block; text-align: center; line-height: normal; padding: 10px 20px;">
+           style="text-decoration: none;">
            koffiekoeken
         </a>
     </div>
@@ -69,10 +69,21 @@
                 </div>
                 <div class="product-info">
                     <h3>{{ product.name }}</h3>
-                    <p>{{ product.description }}</p>
-                    <span>&euro; {{ product.price }}</span>
-                    <form action="{{ url_for('main.add_to_cart', product_id=product.id) }}" method="POST" style="margin-top: 15px;">
-                        <div class="bestel-groep" style="display: flex; align-items: center; gap: 10px; margin-top: 15px;">
+                    
+                    <p class="product-description">{{ product.description }}</p>
+                    
+                    <span class="product-price">&euro; {{ product.price }}</span>
+
+                    <div class="product-allergen-wrapper">
+                        {% if product.calculated_allergens %}
+                            <div class="allergen-box">
+                                ℹ️ Allergenen: {{ product.calculated_allergens }}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <form action="{{ url_for('main.add_to_cart', product_id=product.id) }}" method="POST" class="bestel-form">
+                        <div class="bestel-groep">
                             <div class="quantity-selector">
                                 <button type="button" class="quantity-btn minus" aria-label="Verlaag aantal">-</button>
                                 <input 
