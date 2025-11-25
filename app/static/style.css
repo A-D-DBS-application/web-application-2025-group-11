@@ -345,6 +345,7 @@ h1 {
     font-weight: bold;
     font-size: 1rem;
     color: #333;
+    appearance: textfield; 
     -moz-appearance: textfield;
 }
 .quantity-input::-webkit-outer-spin-button,
