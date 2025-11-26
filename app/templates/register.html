@@ -1,30 +1,44 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container" style="max-width: 400px; margin-top: 50px;">
-    <h2>Maak een account aan</h2>
+<div class="container" style="margin-top: 60px; max-width: 500px;">
     
-    <form method="POST" action="{{ url_for('main.register') }}">
-        <div style="margin-bottom: 15px;">
-            <label for="full_name">Volledige Naam:</label><br>
-            <input type="text" id="full_name" name="full_name" required style="width: 100%; padding: 8px;">
-        </div>
+    <div class="cart-container" style="text-align: center;">
+        <h1 style="margin-bottom: 20px;">Registreren</h1>
+        
+        {% if error %}
+            <div class="alert alert-danger">{{ error }}</div>
+        {% endif %}
 
-        <div style="margin-bottom: 15px;">
-            <label for="email">E-mailadres:</label><br>
-            <input type="email" id="email" name="email" required style="width: 100%; padding: 8px;">
-        </div>
+        <form action="{{ url_for('main.register') }}" method="POST" style="display: flex; flex-direction: column; gap: 15px;">
+            
+            <div style="text-align: left;">
+                <label style="font-weight: bold; color: #593C28;">Volledige Naam</label>
+                <input type="text" name="full_name" required placeholder="Voornaam Achternaam"
+                       style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 1em;">
+            </div>
 
-        <div style="margin-bottom: 20px;">
-            <label for="password">Wachtwoord:</label><br>
-            <input type="password" id="password" name="password" required style="width: 100%; padding: 8px;">
-        </div>
+            <div style="text-align: left;">
+                <label style="font-weight: bold; color: #593C28;">E-mailadres</label>
+                <input type="email" name="email" required 
+                       style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 1em;">
+            </div>
 
-        <button type="submit" style="background-color: var(--primary-green); color: white; padding: 10px 20px; border: none; cursor: pointer;">
-            Registreren
-        </button>
-    </form>
+            <div style="text-align: left;">
+                <label style="font-weight: bold; color: #593C28;">Wachtwoord</label>
+                <input type="password" name="password" required minlength="6"
+                       style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 1em;">
+            </div>
 
-    <p>Heb je al een account? <a href="/login">Log hier in</a>.</p>
+            <button type="submit" class="btn-bestel" style="width: 100%; margin-top: 10px; padding: 12px;">
+                Account Aanmaken
+            </button>
+        </form>
+
+        <p style="margin-top: 20px; color: #666;">
+            Heb je al een account? <a href="{{ url_for('main.login') }}" style="color: #E63946; text-decoration: underline;">Log hier in.</a>
+        </p>
+    </div>
+
 </div>
 {% endblock %}

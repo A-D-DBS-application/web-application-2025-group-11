@@ -1,31 +1,38 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container" style="max-width: 400px; margin-top: 50px;">
-    <h2>Inloggen</h2>
-
-    {% if error %}
-        <div style="background-color: #ffebee; color: #c62828; padding: 10px; border-radius: 4px; margin-bottom: 15px;">
-            {{ error }}
-        </div>
-    {% endif %}
+<div class="container" style="margin-top: 60px; max-width: 500px;">
     
-    <form method="POST" action="{{ url_for('main.login') }}">
-        <div style="margin-bottom: 15px;">
-            <label for="email">E-mailadres:</label><br>
-            <input type="email" id="email" name="email" required style="width: 100%; padding: 8px;">
-        </div>
+    <div class="cart-container" style="text-align: center;">
+        <h1 style="margin-bottom: 20px;">Inloggen</h1>
+        
+        {% if error %}
+            <div class="alert alert-danger">{{ error }}</div>
+        {% endif %}
 
-        <div style="margin-bottom: 20px;">
-            <label for="password">Wachtwoord:</label><br>
-            <input type="password" id="password" name="password" required style="width: 100%; padding: 8px;">
-        </div>
+        <form action="{{ url_for('main.login') }}" method="POST" style="display: flex; flex-direction: column; gap: 15px;">
+            
+            <div style="text-align: left;">
+                <label style="font-weight: bold; color: #593C28;">E-mailadres</label>
+                <input type="email" name="email" required 
+                       style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 1em;">
+            </div>
 
-        <button type="submit" style="background-color: var(--primary-green); color: white; padding: 10px 20px; border: none; cursor: pointer;">
-            Inloggen
-        </button>
-    </form>
+            <div style="text-align: left;">
+                <label style="font-weight: bold; color: #593C28;">Wachtwoord</label>
+                <input type="password" name="password" required 
+                       style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 1em;">
+            </div>
 
-    <p>Nog geen account? <a href="{{ url_for('main.register') }}">Registreer hier</a>.</p>
+            <button type="submit" class="btn-bestel" style="width: 100%; margin-top: 10px; padding: 12px;">
+                Inloggen
+            </button>
+        </form>
+
+        <p style="margin-top: 20px; color: #666;">
+            Nog geen account? <a href="{{ url_for('main.register') }}" style="color: #E63946; text-decoration: underline;">Registreer hier.</a>
+        </p>
+    </div>
+
 </div>
 {% endblock %}

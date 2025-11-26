@@ -473,6 +473,55 @@ def update_product_price():
 # Dit verwijst naar de map: app/static/img
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'img')
 
+@main.route('/admin/product/update_description', methods=['POST'])
+def update_product_description():
+    if 'user_id' not in session or session.get('user_email') not in ADMIN_EMAILS:
+        return redirect(url_for('main.index'))
+    
+    product_id = request.form.get('product_id')
+    new_description = request.form.get('description')
+    
+    try:
+        product = Product.query.get(product_id)
+        product.description = new_description
+        db.session.commit()
+        flash(f'Beschrijving van {product.name} aangepast.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash('Kon beschrijving niet aanpassen.', 'danger')
+        
+    return redirect(url_for('main.admin_products'))
+
+@main.route('/admin/product/update_category', methods=['POST'])
+def update_product_category():
+    if 'user_id' not in session or session.get('user_email') not in ADMIN_EMAILS:
+        return redirect(url_for('main.index'))
+    
+    try:
+        product = Product.query.get(request.form.get('product_id'))
+        product.category = request.form.get('category')
+        db.session.commit()
+        flash(f'Categorie van {product.name} gewijzigd.', 'success')
+    except:
+        db.session.rollback()
+        flash('Fout bij wijzigen categorie.', 'danger')
+    return redirect(url_for('main.admin_products'))
+
+@main.route('/admin/product/update_allergens', methods=['POST'])
+def update_product_allergens():
+    if 'user_id' not in session or session.get('user_email') not in ADMIN_EMAILS:
+        return redirect(url_for('main.index'))
+    
+    try:
+        product = Product.query.get(request.form.get('product_id'))
+        product.allergens = request.form.get('allergens')
+        db.session.commit()
+        flash(f'Allergenen van {product.name} aangepast.', 'success')
+    except:
+        db.session.rollback()
+        flash('Fout bij wijzigen allergenen.', 'danger')
+    return redirect(url_for('main.admin_products'))
+
 @main.route('/admin/product/add', methods=['POST'])
 def add_product_manual():
     if 'user_id' not in session or session.get('user_email') not in ADMIN_EMAILS:
