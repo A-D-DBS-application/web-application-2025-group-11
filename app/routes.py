@@ -7,7 +7,7 @@ from .models import Product, ProductIngredient, Profile, Order, OrderItem, Ingre
 from . import supabase
 import pandas as pd
 from werkzeug.utils import secure_filename
-from .analytics import generate_weekly_forecast
+from .analytics import generate_smart_forecast
 
 # ==============================================================================
 #  CONFIGURATIE & BLUEPRINT
@@ -739,13 +739,15 @@ def delete_recipe_rule(rule_id):
 
 
 
+
 @main.route('/admin/forecast')
 def admin_forecast():
     if 'user_id' not in session or session.get('user_email') not in ADMIN_EMAILS:
         return redirect(url_for('main.index'))
     
     try:
-        forecast, start, end = generate_weekly_forecast()
+        # Roep de nieuwe slimme functie aan
+        forecast, start, end = generate_smart_forecast()
     except Exception as e:
         print(f"Error: {e}")
         forecast = []

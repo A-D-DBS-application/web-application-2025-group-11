@@ -1,12 +1,31 @@
 import pandas as pd
 import numpy as np
 from datetime import date, timedelta
-from sklearn.linear_model import LinearRegression
+from sklearn.ensemble import RandomForestRegressor
 from .models import db, Order, OrderItem, Product
 from sqlalchemy import text
 
-def generate_weekly_forecast():
-    # 1. DATA OPHALEN (Raw SQL voor snelheid)
+# Dezelfde lijst als in je seeder, zodat de AI het patroon kan herkennen
+HOLIDAYS = [
+    (25, 12), # Kerst
+    (1, 1),   # Nieuwjaar
+    (31, 3),  # Pasen (ongeveer)
+    (12, 5),  # Moederdag (ongeveer)
+    (1, 11),  # Allerheiligen
+    (15, 8),  # Moederdag (Antwerpen) / Maria Hemelvaart
+    (21, 7),  # Nationale feestdag
+]
+
+def is_holiday(d):
+    """Hulpprogramma: Geeft 1 terug als het een feestdag is, anders 0"""
+    if (d.day, d.month) in HOLIDAYS:
+        return 1
+    return 0
+
+def generate_smart_forecast():
+    print("--- 🧠 AI ALGORITME (MET FEESTDAGEN) STARTEN ---")
+
+    # 1. DATA OPHALEN
     sql = text("""
         SELECT 
             orders.pickup_date,
@@ -27,8 +46,17 @@ def generate_weekly_forecast():
 
         df['pickup_date'] = pd.to_datetime(df['pickup_date'])
 
-        # 2. GROEPEREN
-        daily_sales = df.groupby(['pickup_date', 'name'])['quantity'].sum().reset_index()
+        # 2. FEATURE ENGINEERING
+        # We voegen extra kennis toe aan de data
+        df['weekday'] = df['pickup_date'].dt.dayofweek
+        df['date_ordinal'] = df['pickup_date'].apply(lambda x: x.toordinal())
+        
+        # NIEUW: Vertel de AI of het een feestdag was
+        df['is_holiday'] = df['pickup_date'].apply(is_holiday)
+
+        # Groepeer per dag (en neem de features mee)
+        # We gebruiken 'max' voor is_holiday en weekday omdat die hetzelfde zijn voor die dag
+        daily_sales = df.groupby(['date_ordinal', 'weekday', 'is_holiday', 'name'])['quantity'].sum().reset_index()
 
         forecast_results = []
         unique_products = daily_sales['name'].unique()
@@ -36,43 +64,59 @@ def generate_weekly_forecast():
         start_prediction = date.today() + timedelta(days=1)
         end_prediction = date.today() + timedelta(days=7)
 
-        # 3. VOORSPELLEN (Linear Regression)
+        # 3. VOORSPELLEN
         for product_name in unique_products:
             product_data = daily_sales[daily_sales['name'] == product_name].copy()
 
             if len(product_data) < 5:
                 continue
 
-            product_data['date_ordinal'] = product_data['pickup_date'].apply(lambda x: x.toordinal())
-            
-            X = product_data[['date_ordinal']]
+            # INPUT (X): Datum + Weekdag + IS HET FEESTDAG?
+            X = product_data[['date_ordinal', 'weekday', 'is_holiday']]
             y = product_data['quantity']
 
-            model = LinearRegression()
+            # Train het model
+            model = RandomForestRegressor(n_estimators=100, random_state=42)
             model.fit(X, y)
 
             total_predicted_week = 0
+            predicted_tomorrow = 0
             
+            # Voorspel toekomst
             for i in range(1, 8):
                 future_date = date.today() + timedelta(days=i)
-                future_ordinal = future_date.toordinal()
-                prediction = model.predict([[future_ordinal]])
+                
+                # We moeten voor de toekomst OOK berekenen of het een feestdag is
+                future_is_holiday = is_holiday(future_date)
+                
+                future_features = pd.DataFrame({
+                    'date_ordinal': [future_date.toordinal()],
+                    'weekday': [future_date.weekday()],
+                    'is_holiday': [future_is_holiday] # <--- Dit is de sleutel!
+                })
+                
+                prediction = model.predict(future_features)
                 qty = max(0, round(prediction[0]))
+                
                 total_predicted_week += qty
+                
+                if i == 1:
+                    predicted_tomorrow = qty
 
+            # Trend
             last_week_avg = product_data.tail(7)['quantity'].sum()
-            
             trend = "stabiel ➡️"
             if total_predicted_week > (last_week_avg * 1.1): trend = "stijgend 📈"
             if total_predicted_week < (last_week_avg * 0.9): trend = "dalend 📉"
 
             forecast_results.append({
                 'product': product_name,
-                'predicted_week': int(total_predicted_week),
+                'tomorrow': int(predicted_tomorrow),
+                'week_total': int(total_predicted_week),
                 'trend': trend
             })
 
-        forecast_results.sort(key=lambda x: x['predicted_week'], reverse=True)
+        forecast_results.sort(key=lambda x: x['tomorrow'], reverse=True)
         
         return forecast_results, start_prediction, end_prediction
 

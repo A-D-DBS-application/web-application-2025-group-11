@@ -6,13 +6,16 @@
     <div class="admin-header-container">
         <div class="admin-header-text">
             <h1>Productbeheer</h1>
-            <p>Beheer je assortiment, prijzen en details.</p>
+            <p>Prijzen wijzigen, nieuwe producten toevoegen of importeren.</p>
         </div>
         
         <div style="display: flex; gap: 8px;">
             <a href="{{ url_for('main.admin_inventory') }}" class="btn-admin-nav">Voorraad</a>
-            <a href="{{ url_for('main.admin_products') }}" class="btn-admin-nav" style="background-color: white; color: #593C28;">Producten</a>
+            
+            <a href="{{ url_for('main.admin_products') }}" class="btn-admin-nav" style="background-color: white; color: #593C28; border: 2px solid #eee;">Producten</a>
+            
             <a href="{{ url_for('main.admin_orders') }}" class="btn-admin-nav">Orders</a>
+            <a href="{{ url_for('main.admin_forecast') }}" class="btn-admin-nav">Forecast</a>
         </div>
     </div>
 
@@ -33,11 +36,9 @@
                     <tbody>
                         {% for product in products %}
                         <tr style="border-bottom: 1px solid #f0f0f0; vertical-align: top;">
-                            
                             <td style="padding: 15px;">
                                 <div style="display: flex; flex-direction: column; gap: 8px; align-items: center;">
                                     <img src="{{ url_for('static', filename='img/' + product.image_url) }}" width="70" height="70" style="border-radius: 6px; object-fit: cover; border: 1px solid #ddd;">
-                                    
                                     <form action="{{ url_for('main.upload_product_image') }}" method="POST" enctype="multipart/form-data">
                                         <input type="hidden" name="product_id" value="{{ product.id }}">
                                         <label style="cursor: pointer; font-size: 0.75em; color: #593C28; font-weight: bold; background: #eee; padding: 2px 6px; border-radius: 4px;">
@@ -47,60 +48,45 @@
                                     </form>
                                 </div>
                             </td>
-
                             <td style="padding: 15px;">
-                                <div style="font-size: 1.1em; font-weight: bold; color: #593C28; margin-bottom: 8px;">
-                                    {{ product.name }}
-                                </div>
-
+                                <div style="font-size: 1.1em; font-weight: bold; color: #593C28; margin-bottom: 8px;">{{ product.name }}</div>
                                 <form action="{{ url_for('main.update_product_category') }}" method="POST" style="margin-bottom: 8px;">
                                     <input type="hidden" name="product_id" value="{{ product.id }}">
-                                    <select name="category" onchange="this.form.submit()" style="padding: 4px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.85em; width: 100%; background-color: #fff;">
+                                    <select name="category" onchange="this.form.submit()" style="padding: 4px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
                                         <option value="brood" {% if product.category == 'brood' %}selected{% endif %}>Brood</option>
                                         <option value="pistoles" {% if product.category == 'pistoles' %}selected{% endif %}>Pistolets</option>
                                         <option value="koffiekoeken" {% if product.category == 'koffiekoeken' %}selected{% endif %}>Koffiekoeken</option>
                                     </select>
                                 </form>
-
                                 <form action="{{ url_for('main.update_product_allergens') }}" method="POST" style="display: flex; gap: 5px;">
                                     <input type="hidden" name="product_id" value="{{ product.id }}">
-                                    <input type="text" name="allergens" value="{{ product.allergens or '' }}" placeholder="Allergenen..." 
-                                           style="width: 100%; padding: 4px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.85em;">
+                                    <input type="text" name="allergens" value="{{ product.allergens or '' }}" placeholder="Allergenen..." style="width: 100%; padding: 4px; border: 1px solid #ccc; border-radius: 4px;">
                                     <button type="submit" title="Opslaan" style="background: none; border: none; cursor: pointer;">💾</button>
                                 </form>
                                 {% if product.calculated_allergens and product.calculated_allergens != product.allergens %}
                                     <small style="color: #E63946; font-size: 0.75em;">Auto: {{ product.calculated_allergens }}</small>
                                 {% endif %}
                             </td>
-
                             <td style="padding: 15px;">
                                 <form action="{{ url_for('main.update_product_description') }}" method="POST" style="height: 100%;">
                                     <input type="hidden" name="product_id" value="{{ product.id }}">
                                     <div style="display: flex; gap: 5px; height: 100%;">
-                                        <textarea name="description" 
-                                                  style="width: 100%; height: 100px; padding: 8px; border: 1px solid #eee; border-radius: 4px; font-family: inherit; font-size: 0.9em; resize: none;">{{ product.description }}</textarea>
+                                        <textarea name="description" style="width: 100%; height: 100px; padding: 8px; border: 1px solid #eee; border-radius: 4px; resize: none;">{{ product.description }}</textarea>
                                         <button type="submit" title="Opslaan" style="background: none; border: none; cursor: pointer; align-self: flex-start;">💾</button>
                                     </div>
                                 </form>
                             </td>
-
                             <td style="padding: 15px;">
                                 <form action="{{ url_for('main.update_product_price') }}" method="POST" style="display: flex; align-items: center; gap: 5px; margin-bottom: 15px;">
                                     <input type="hidden" name="product_id" value="{{ product.id }}">
                                     <span style="font-weight: bold; color: #593C28;">€</span>
-                                    <input type="number" name="price" value="{{ product.price }}" step="0.01" 
-                                           style="width: 70px; padding: 5px; border: 1px solid #ccc; border-radius: 4px; font-weight: bold;">
+                                    <input type="number" name="price" value="{{ product.price }}" step="0.01" style="width: 70px; padding: 5px; border: 1px solid #ccc; border-radius: 4px; font-weight: bold;">
                                     <button type="submit" title="Prijs opslaan" style="background: none; border: none; cursor: pointer;">💾</button>
                                 </form>
-
                                 <hr style="border: 0; border-top: 1px solid #eee; margin-bottom: 15px;">
-
                                 <div style="display: flex; gap: 10px; align-items: center;">
-                                    <a href="{{ url_for('main.manage_recipe', product_id=product.id) }}" class="btn-admin-nav" style="padding: 6px 12px; font-size: 0.8em; background-color: #F9A825; border-color: #F9A825;">
-                                        📜 Recept
-                                    </a>
-                                    
-                                    <form action="{{ url_for('main.delete_product', product_id=product.id) }}" method="POST" onsubmit="return confirm('Weet je zeker dat je {{ product.name }} wilt verwijderen?');">
+                                    <a href="{{ url_for('main.manage_recipe', product_id=product.id) }}" class="btn-admin-nav" style="padding: 6px 12px; font-size: 0.8em; background-color: #F9A825; border-color: #F9A825;">📜 Recept</a>
+                                    <form action="{{ url_for('main.delete_product', product_id=product.id) }}" method="POST" onsubmit="return confirm('Zeker weten?');">
                                         <button type="submit" title="Verwijderen" style="background: #E63946; border: none; color: white; width: 30px; height: 30px; border-radius: 4px; cursor: pointer;">✕</button>
                                     </form>
                                 </div>
@@ -113,7 +99,6 @@
         </div>
 
         <div style="flex: 1; min-width: 300px; display: flex; flex-direction: column; gap: 30px;">
-            
             <div class="cart-container">
                 <h3 style="color: #593C28; margin-bottom: 15px;">+ Nieuw Product</h3>
                 <form action="{{ url_for('main.add_product_manual') }}" method="POST" enctype="multipart/form-data">
@@ -139,7 +124,7 @@
                     </div>
                     <div style="margin-bottom: 10px;">
                         <label>Allergenen (Optioneel)</label>
-                        <input type="text" name="allergens" placeholder="bv. Gluten, Melk" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                        <input type="text" name="allergens" placeholder="bv. Gluten" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
                     </div>
                     <div style="margin-bottom: 15px;">
                         <label>Foto uploaden</label>
@@ -151,15 +136,10 @@
 
             <div class="cart-container" style="background-color: #E8F5E9; border: 1px solid #C8E6C9;">
                 <h3 style="color: #2E7D32; margin-bottom: 15px;">📂 Excel Import</h3>
-                <p style="font-size: 0.85rem; color: #555; margin-bottom: 15px;">
-                    Upload een .xlsx bestand met kolommen: <br>
-                    <em>name, price, category, description, allergens</em>
-                </p>
+                <p style="font-size: 0.85rem; color: #555; margin-bottom: 15px;">Kolommen: <em>name, price, category, description, allergens</em></p>
                 <form action="{{ url_for('main.import_products_excel') }}" method="POST" enctype="multipart/form-data">
                     <input type="file" name="file" accept=".xlsx" required style="margin-bottom: 10px; width: 100%;">
-                    <button type="submit" class="btn-admin-nav" style="width: 100%; justify-content: center; background-color: #2E7D32; border-color: #2E7D32;">
-                        Importeren
-                    </button>
+                    <button type="submit" class="btn-admin-nav" style="width: 100%; justify-content: center; background-color: #2E7D32; border-color: #2E7D32;">Importeren</button>
                 </form>
             </div>
         </div>

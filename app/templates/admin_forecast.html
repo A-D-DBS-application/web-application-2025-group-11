@@ -8,26 +8,33 @@
             <h1>🤖 AI Bak-Advies</h1>
             <p>Voorspelling voor: <strong>{{ start_date.strftime('%d-%m') }} t/m {{ end_date.strftime('%d-%m') }}</strong></p>
         </div>
+        
         <div style="display: flex; gap: 8px;">
             <a href="{{ url_for('main.admin_inventory') }}" class="btn-admin-nav">Voorraad</a>
             <a href="{{ url_for('main.admin_products') }}" class="btn-admin-nav">Producten</a>
             <a href="{{ url_for('main.admin_orders') }}" class="btn-admin-nav">Orders</a>
+            
+            <a href="{{ url_for('main.admin_forecast') }}" class="btn-admin-nav" style="background-color: white; color: #593C28; border: 2px solid #eee;">Forecast</a>
         </div>
     </div>
 
     {% if not forecast %}
         <div class="empty-cart-container">
             <h3>Nog geen data!</h3>
-            <p>Draai eerst <code>seed_history.py</code>.</p>
+            <p>Het algoritme heeft historie nodig. Draai <code>seed_history.py</code>.</p>
         </div>
     {% else %}
         <div class="cart-container">
+            <p style="margin-bottom: 20px; color: #666;">
+                <strong>Random Forest Analyse:</strong> Gebaseerd op historie, weekdag-patronen en feestdagen.
+            </p>
             <table style="width: 100%; border-collapse: collapse;">
                 <thead>
                     <tr style="border-bottom: 2px solid #eee; text-align: left; color: #593C28;">
                         <th style="padding: 15px;">Product</th>
                         <th style="padding: 15px;">Trend</th>
-                        <th style="padding: 15px; color: #2E7D32;">✨ Verwacht (7 dagen)</th>
+                        <th style="padding: 15px; background-color: #E8F5E9; color: #2E7D32;">🌅 Voor Morgen ({{ start_date.strftime('%d/%m') }})</th>
+                        <th style="padding: 15px; color: #666;">📅 Komende 7 dagen</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -35,9 +42,8 @@
                     <tr style="border-bottom: 1px solid #f0f0f0;">
                         <td style="padding: 15px; font-weight: bold;">{{ item.product }}</td>
                         <td style="padding: 15px;">{{ item.trend }}</td>
-                        <td style="padding: 15px; font-weight: bold; font-size: 1.2em; color: #2E7D32;">
-                            {{ item.predicted_week }} stuks
-                        </td>
+                        <td style="padding: 15px; background-color: #f1f8e9; font-weight: bold; font-size: 1.2em; color: #2E7D32;">{{ item.tomorrow }} stuks</td>
+                        <td style="padding: 15px; color: #666;">{{ item.week_total }} stuks</td>
                     </tr>
                     {% endfor %}
                 </tbody>
