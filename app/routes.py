@@ -7,6 +7,7 @@ from .models import Product, ProductIngredient, Profile, Order, OrderItem, Ingre
 from . import supabase
 import pandas as pd
 from werkzeug.utils import secure_filename
+from .analytics import generate_weekly_forecast
 
 # ==============================================================================
 #  CONFIGURATIE & BLUEPRINT
@@ -389,7 +390,6 @@ def waste_ingredient():
         
     return redirect(url_for('main.admin_inventory'))
 
-# NIEUWE FUNCTIE: ORDER OVERZICHT
 @main.route('/admin/orders')
 def admin_orders():
     if 'user_id' not in session:
@@ -398,24 +398,21 @@ def admin_orders():
         flash('Geen toegang.', 'danger')
         return redirect(url_for('main.index'))
 
-    # 1. Haal ALLE orders op (gesorteerd op datum)
-    all_orders = Order.query.order_by(Order.pickup_date, Order.status.desc()).all()
-    
-    # 2. Splits ze op in "Vandaag" en "De Rest"
     today = date.today()
-    
-    orders_today = []
-    orders_other = []
 
-    for order in all_orders:
-        # Logica: Als de datum vandaag is EN hij is nog niet opgehaald/geannuleerd -> In het dagoverzicht
-        # (Of als hij 'ready' staat, willen we hem ook vandaag zien, zelfs als de datum gisteren was - vergeten order)
-        is_active_today = (order.pickup_date == today) and (order.status not in ['picked_up', 'cancelled'])
-        
-        if is_active_today:
-            orders_today.append(order)
-        else:
-            orders_other.append(order)
+    # 1. Haal de orders van VANDAAG op (Alles wat nog moet gebeuren)
+    # Dit is belangrijk, dus hier willen we wél alles van zien.
+    orders_today = Order.query.filter(
+        Order.pickup_date == today,
+        Order.status.notin_(['picked_up', 'cancelled'])
+    ).all()
+
+    # 2. Haal de HISTORIE op (Beperk tot 50!)
+    # We sorteren op datum (nieuwste eerst) en pakken er max 50.
+    # Dit voorkomt dat je pagina crasht.
+    orders_other = Order.query.filter(
+        (Order.pickup_date != today) | (Order.status.in_(['picked_up', 'cancelled']))
+    ).order_by(Order.pickup_date.desc()).limit(50).all()
 
     return render_template('admin_orders.html', 
                            orders_today=orders_today, 
@@ -738,3 +735,21 @@ def delete_recipe_rule(rule_id):
     except:
         db.session.rollback()
         return redirect(url_for('main.admin_products'))
+    
+
+
+
+@main.route('/admin/forecast')
+def admin_forecast():
+    if 'user_id' not in session or session.get('user_email') not in ADMIN_EMAILS:
+        return redirect(url_for('main.index'))
+    
+    try:
+        forecast, start, end = generate_weekly_forecast()
+    except Exception as e:
+        print(f"Error: {e}")
+        forecast = []
+        start = date.today()
+        end = date.today()
+
+    return render_template('admin_forecast.html', forecast=forecast, start_date=start, end_date=end)

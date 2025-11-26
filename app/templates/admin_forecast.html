@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container" style="margin-top: 40px; margin-bottom: 60px;">
+    
+    <div class="admin-header-container">
+        <div class="admin-header-text">
+            <h1>🤖 AI Bak-Advies</h1>
+            <p>Voorspelling voor: <strong>{{ start_date.strftime('%d-%m') }} t/m {{ end_date.strftime('%d-%m') }}</strong></p>
+        </div>
+        <div style="display: flex; gap: 8px;">
+            <a href="{{ url_for('main.admin_inventory') }}" class="btn-admin-nav">Voorraad</a>
+            <a href="{{ url_for('main.admin_products') }}" class="btn-admin-nav">Producten</a>
+            <a href="{{ url_for('main.admin_orders') }}" class="btn-admin-nav">Orders</a>
+        </div>
+    </div>
+
+    {% if not forecast %}
+        <div class="empty-cart-container">
+            <h3>Nog geen data!</h3>
+            <p>Draai eerst <code>seed_history.py</code>.</p>
+        </div>
+    {% else %}
+        <div class="cart-container">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="border-bottom: 2px solid #eee; text-align: left; color: #593C28;">
+                        <th style="padding: 15px;">Product</th>
+                        <th style="padding: 15px;">Trend</th>
+                        <th style="padding: 15px; color: #2E7D32;">✨ Verwacht (7 dagen)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in forecast %}
+                    <tr style="border-bottom: 1px solid #f0f0f0;">
+                        <td style="padding: 15px; font-weight: bold;">{{ item.product }}</td>
+                        <td style="padding: 15px;">{{ item.trend }}</td>
+                        <td style="padding: 15px; font-weight: bold; font-size: 1.2em; color: #2E7D32;">
+                            {{ item.predicted_week }} stuks
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
