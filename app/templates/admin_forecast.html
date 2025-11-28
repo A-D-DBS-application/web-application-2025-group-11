@@ -13,42 +13,90 @@
             <a href="{{ url_for('main.admin_inventory') }}" class="btn-admin-nav">Voorraad</a>
             <a href="{{ url_for('main.admin_products') }}" class="btn-admin-nav">Producten</a>
             <a href="{{ url_for('main.admin_orders') }}" class="btn-admin-nav">Orders</a>
-            
             <a href="{{ url_for('main.admin_forecast') }}" class="btn-admin-nav" style="background-color: white; color: #593C28; border: 2px solid #eee;">Forecast</a>
         </div>
     </div>
 
     {% if not forecast %}
         <div class="empty-cart-container">
-            <h3>Nog geen data!</h3>
+            <h3 style="color: #E63946;">Nog geen data!</h3>
             <p>Het algoritme heeft historie nodig. Draai <code>seed_history.py</code>.</p>
         </div>
-    {% else %}
-        <div class="cart-container">
-            <p style="margin-bottom: 20px; color: #666;">
-                <strong>Random Forest Analyse:</strong> Gebaseerd op historie, weekdag-patronen en feestdagen.
-            </p>
-            <table style="width: 100%; border-collapse: collapse;">
-                <thead>
-                    <tr style="border-bottom: 2px solid #eee; text-align: left; color: #593C28;">
-                        <th style="padding: 15px;">Product</th>
-                        <th style="padding: 15px;">Trend</th>
-                        <th style="padding: 15px; background-color: #E8F5E9; color: #2E7D32;">🌅 Voor Morgen ({{ start_date.strftime('%d/%m') }})</th>
-                        <th style="padding: 15px; color: #666;">📅 Komende 7 dagen</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in forecast %}
-                    <tr style="border-bottom: 1px solid #f0f0f0;">
-                        <td style="padding: 15px; font-weight: bold;">{{ item.product }}</td>
-                        <td style="padding: 15px;">{{ item.trend }}</td>
-                        <td style="padding: 15px; background-color: #f1f8e9; font-weight: bold; font-size: 1.2em; color: #2E7D32;">{{ item.tomorrow }} stuks</td>
-                        <td style="padding: 15px; color: #666;">{{ item.week_total }} stuks</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+    
+    {% else %} <div style="display: flex; gap: 40px; flex-wrap: wrap;">
+        
+        <div style="flex: 3; min-width: 400px;">
+            <h3 style="color: #593C28; margin-bottom: 15px;">🍞 Productieplanning</h3>
+            <div class="cart-container" style="padding: 0; overflow: hidden;">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid #eee; text-align: left; color: #593C28; background-color: #f9f9f9;">
+                            <th style="padding: 15px;">Product</th>
+                            <th style="padding: 15px;">Trend</th>
+                            <th style="padding: 15px; background-color: #E8F5E9; color: #2E7D32;">
+                                🌅 Voor Morgen
+                            </th>
+                            <th style="padding: 15px; color: #666;">
+                                📅 7 Dagen
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in forecast %}
+                        <tr style="border-bottom: 1px solid #f0f0f0;">
+                            <td style="padding: 15px; font-weight: bold;">{{ item.product_name }}</td>
+                            <td style="padding: 15px;">{{ item.trend }}</td>
+                            <td style="padding: 15px; background-color: #f1f8e9; font-weight: bold; font-size: 1.2em; color: #2E7D32;">
+                                {{ item.tomorrow }} stuks
+                            </td>
+                            <td style="padding: 15px; color: #666;">
+                                {{ item.week_total }} stuks
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
-    {% endif %}
-</div>
+
+        <div style="flex: 2; min-width: 300px;">
+            <h3 style="color: #593C28; margin-bottom: 15px;">🛒 Boodschappenlijst (Morgen)</h3>
+            <div class="cart-container" style="padding: 0; overflow: hidden; background-color: #fffaf0; border: 1px solid #e0d6cc;">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid #eee; text-align: left; color: #593C28;">
+                            <th style="padding: 12px;">Ingrediënt</th>
+                            <th style="padding: 12px;">Nodig</th>
+                            <th style="padding: 12px;">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in shopping_list %}
+                        <tr style="border-bottom: 1px solid #eee;">
+                            <td style="padding: 12px;">{{ item.name }}</td>
+                            <td style="padding: 12px; font-weight: bold;">
+                                {{ item.amount }} {{ item.unit }}
+                            </td>
+                            <td style="padding: 12px;">
+                                {% if item.status == 'Voldoende ✅' %}
+                                    <span style="color: #4CAF50; font-size: 0.9em;">{{ item.status }}</span>
+                                {% else %}
+                                    <span style="color: #E63946; font-weight: bold; font-size: 0.9em;">{{ item.status }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                            <tr><td colspan="3" style="padding: 20px; text-align: center; color: #888;">Nog geen recepten gekoppeld.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <p style="margin-top: 10px; font-size: 0.85em; color: #666;">
+                * Gebaseerd op de AI-voorspelling en de recepten.
+            </p>
+        </div>
+
+    </div>
+
+    {% endif %} </div>
 {% endblock %}
