@@ -64,13 +64,13 @@ class Profile(db.Model):
     id = db.Column(UUID(as_uuid=True), primary_key=True)
     full_name = db.Column(db.Text)
     phone_number = db.Column(db.Text)
+    is_admin = db.Column(db.Boolean, default=False)
+    
     updated_at = db.Column(db.DateTime(timezone=True), onupdate=func.now())
-
     orders = db.relationship('Order', backref='profile', lazy=True)
 
     def __repr__(self):
         return f'<Profile {self.full_name}>'
-
 
 # ==============================================================================
 #  ORDER MODEL
@@ -141,3 +141,23 @@ class ProductIngredient(db.Model):
 
     def __repr__(self):
         return f'<ReceptRegel: {self.quantity_needed} van {self.ingredient_id}>'
+    
+# =========================================
+# SETTINGS
+# =========================================
+
+class AppSettings(db.Model):
+    __tablename__ = 'app_settings'
+
+    id = db.Column(db.BigInteger, primary_key=True)
+    welcome_title = db.Column(db.Text)
+    welcome_text = db.Column(db.Text)
+    intro_text = db.Column(db.Text)
+    deadline_hour = db.Column(db.Integer, default=17)
+    
+    # Contactgegevens
+    phone_number = db.Column(db.Text)
+    email_address = db.Column(db.Text)
+    address_text = db.Column(db.Text)
+    opening_hours = db.Column(db.Text) #mag eig weg, maar als fallback voor nu laten staan
+    weekly_schedule_json = db.Column(db.Text)

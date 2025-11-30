@@ -1,6 +1,7 @@
 import os
 import time
 import pandas as pd
+import json
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from decimal import Decimal
 from datetime import datetime, timedelta, date
@@ -8,35 +9,55 @@ from werkzeug.utils import secure_filename
 from sqlalchemy import text
 
 # Importeer je modellen en database
-from .models import Product, Profile, Order, OrderItem, Ingredient, ProductIngredient, db
+from .models import Product, Profile, Order, OrderItem, Ingredient, ProductIngredient, AppSettings, db
 # Importeer Supabase authenticatie
 from . import supabase
 # Importeer je AI functie
 from .analytics import generate_smart_forecast
 
 # ==============================================================================
-#  CONFIGURATIE
+#  CONFIGURATIE & BLUEPRINT
 # ==============================================================================
 
 main = Blueprint('main', __name__)
 
-ADMIN_EMAILS = [
-    "mathisdebaene@gmail.com",
-    "emile.debourdeaudhuy@icloud.com", 
-    "roel.vanzele@telenet.be",
-    "marieberge33@icloud.com",
-    "ali.dadachev@hotmail.com"
-]
-
 # Pad naar de afbeeldingen map
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'img')
 
+# --- HULPFUNCTIES ---
+
+def get_settings():
+    """Haalt de instellingen op. Maakt ze aan als ze niet bestaan."""
+    settings = AppSettings.query.first()
+    if not settings:
+        # Maak standaard settings als de tabel leeg is
+        settings = AppSettings(
+            id=1,
+            welcome_title="Welkom bij Bakkerij Oewist",
+            welcome_text="Waar geur, smaak en gezelligheid samenkomen!",
+            deadline_hour=17
+        )
+        db.session.add(settings)
+        db.session.commit()
+    return settings
+
+def check_admin():
+    """Controleert of de huidige gebruiker admin is in de database."""
+    if 'user_id' not in session: return False
+    user = Profile.query.get(session['user_id'])
+    return user and user.is_admin
+
 @main.context_processor
-def inject_user():
+def inject_globals():
+    """Zorgt dat user én settings op ELKE pagina beschikbaar zijn."""
     user_profile = None
     if 'user_id' in session:
         user_profile = Profile.query.get(session['user_id'])
-    return dict(current_user=user_profile)
+    
+    return dict(
+        current_user=user_profile,
+        settings=get_settings()
+    )
 
 
 # ==============================================================================
@@ -77,11 +98,18 @@ def login():
     if request.method == 'POST':
         email = request.form.get('email')
         password = request.form.get('password')
+
         try:
             response = supabase.auth.sign_in_with_password({"email": email, "password": password})
             session['user_id'] = response.user.id
             session['access_token'] = response.session.access_token
             session['user_email'] = response.user.email
+            
+            # Check of admin (voor redirect gemak)
+            user = Profile.query.get(response.user.id)
+            if user and user.is_admin:
+                return redirect(url_for('main.admin_orders'))
+            
             return redirect(url_for('main.index'))
         except Exception:
             return render_template('login.html', error="E-mailadres of wachtwoord is onjuist.")
@@ -93,13 +121,15 @@ def register():
         full_name = request.form.get('full_name')
         email = request.form.get('email')
         password = request.form.get('password')
+
         try:
             auth_response = supabase.auth.sign_up({
                 "email": email, "password": password, "options": {"data": {"full_name": full_name}}
             })
             if auth_response.user and auth_response.user.id:
                 user_id = auth_response.user.id
-                new_profile = Profile(id=user_id, full_name=full_name)
+                # Standaard is_admin = False
+                new_profile = Profile(id=user_id, full_name=full_name, is_admin=False)
                 db.session.add(new_profile)
                 db.session.commit()
                 return redirect(url_for('main.index'))
@@ -134,13 +164,34 @@ def view_cart():
             total_cart_price += total_for_product
             products_in_cart.append({'product': product, 'quantity': quantity, 'total_price': total_for_product})
     
+    # DYNAMISCHE DEADLINE (Uit settings!)
+    settings = get_settings()
+    deadline = settings.deadline_hour if settings.deadline_hour else 17
+    
     nu = datetime.now()
     min_datum_obj = date.today() + timedelta(days=1)
-    if nu.hour >= 17: 
+    if nu.hour >= deadline: 
         min_datum_obj = date.today() + timedelta(days=2)
     
     min_date_str = min_datum_obj.strftime('%Y-%m-%d')
-    return render_template('cart.html', cart_items=products_in_cart, total_cart_price=total_cart_price, min_date_str=min_date_str)
+
+    # --- OPENINGSUREN CHECK ---
+    closed_days = [] 
+    if settings.weekly_schedule_json:
+        try:
+            schedule = json.loads(settings.weekly_schedule_json)
+            for i in range(7):
+                if schedule.get(str(i), {}).get('closed'):
+                    # Python 0=Ma, JS 0=Zo. Conversie:
+                    js_day = i + 1 if i < 6 else 0
+                    closed_days.append(js_day)
+        except: pass
+
+    return render_template('cart.html', 
+                           cart_items=products_in_cart, 
+                           total_cart_price=total_cart_price, 
+                           min_date_str=min_date_str,
+                           closed_days=closed_days)
 
 @main.route('/cart/add/<int:product_id>', methods=['POST'])
 def add_to_cart(product_id):
@@ -241,19 +292,100 @@ def checkout():
 
 
 # ==============================================================================
-#  4. ADMIN: VOORRAAD & ORDERS
+#  4. ADMIN: SETTINGS (NIEUW)
+# ==============================================================================
+
+@main.route('/admin/settings')
+def admin_settings():
+    if not check_admin(): return redirect(url_for('main.index'))
+    
+    admins = Profile.query.filter_by(is_admin=True).all()
+    users = Profile.query.filter_by(is_admin=False).all()
+    
+    # Load schedule
+    settings = get_settings()
+    try:
+        schedule = json.loads(settings.weekly_schedule_json)
+    except:
+        schedule = {str(i): {'closed': False, 'text': '08:00 - 17:00'} for i in range(7)}
+
+    days_names = ['Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag', 'Zondag']
+
+    return render_template('admin_settings.html', admins=admins, users=users, schedule=schedule, days_names=days_names)
+
+@main.route('/admin/settings/update', methods=['POST'])
+def update_settings():
+    if not check_admin(): return redirect(url_for('main.index'))
+    
+    s = get_settings()
+    s.welcome_title = request.form.get('welcome_title')
+    s.welcome_text = request.form.get('welcome_text')
+    s.intro_text = request.form.get('intro_text')
+    try:
+        s.deadline_hour = int(request.form.get('deadline_hour'))
+    except: pass
+    
+    s.phone_number = request.form.get('phone_number')
+    s.email_address = request.form.get('email_address')
+    s.address_text = request.form.get('address_text')
+    
+    # Openingsuren JSON bouwen
+    new_schedule = {}
+    formatted_text = []
+    short_names = ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo']
+    
+    for i in range(7):
+        is_closed = request.form.get(f'day_{i}_closed') == 'on'
+        text_hours = request.form.get(f'day_{i}_text')
+        new_schedule[str(i)] = {'closed': is_closed, 'text': text_hours}
+        
+        status = "GESLOTEN" if is_closed else text_hours
+        formatted_text.append(f"{short_names[i]}: {status}")
+
+    s.weekly_schedule_json = json.dumps(new_schedule)
+    s.opening_hours = "\n".join(formatted_text) # Fallback tekst
+    
+    db.session.commit()
+    flash('Instellingen opgeslagen.', 'success')
+    return redirect(url_for('main.admin_settings'))
+
+@main.route('/admin/settings/toggle_admin', methods=['POST'])
+def toggle_admin():
+    if not check_admin(): return redirect(url_for('main.index'))
+    
+    user_id = request.form.get('user_id')
+    action = request.form.get('action')
+    
+    user = Profile.query.get(user_id)
+    if user:
+        if action == 'add':
+            user.is_admin = True
+            flash(f'{user.full_name} is nu Admin.', 'success')
+        elif action == 'remove':
+            if str(user.id) == session['user_id']:
+                flash('Je kan jezelf niet ontslaan!', 'danger')
+            else:
+                user.is_admin = False
+                flash(f'{user.full_name} is geen Admin meer.', 'warning')
+        db.session.commit()
+    
+    return redirect(url_for('main.admin_settings'))
+
+
+# ==============================================================================
+#  5. ADMIN: VOORRAAD & ORDERS
 # ==============================================================================
 
 @main.route('/admin/inventory')
-@main.route('/admin/voorraad') # Alias voor zekerheid
+@main.route('/admin/voorraad')
 def admin_inventory():
-    if session.get('user_email') not in ADMIN_EMAILS: return redirect(url_for('main.index'))
+    if not check_admin(): return redirect(url_for('main.index'))
     ingredients = Ingredient.query.order_by(Ingredient.name).all()
     return render_template('admin_inventory.html', ingredients=ingredients)
 
 @main.route('/admin/restock', methods=['POST'])
 def restock_ingredient():
-    if session.get('user_email') not in ADMIN_EMAILS: return redirect(url_for('main.index'))
+    if not check_admin(): return redirect(url_for('main.index'))
     try:
         ing = Ingredient.query.get(request.form.get('ingredient_id'))
         ing.stock_quantity += Decimal(request.form.get('amount'))
@@ -264,7 +396,7 @@ def restock_ingredient():
 
 @main.route('/admin/waste', methods=['POST'])
 def waste_ingredient():
-    if session.get('user_email') not in ADMIN_EMAILS: return redirect(url_for('main.index'))
+    if not check_admin(): return redirect(url_for('main.index'))
     try:
         ing = Ingredient.query.get(request.form.get('ingredient_id'))
         ing.stock_quantity -= Decimal(request.form.get('amount'))
@@ -275,17 +407,15 @@ def waste_ingredient():
 
 @main.route('/admin/orders')
 def admin_orders():
-    if session.get('user_email') not in ADMIN_EMAILS: return redirect(url_for('main.index'))
+    if not check_admin(): return redirect(url_for('main.index'))
     today = date.today()
-    # Vandaag
     orders_today = Order.query.filter(Order.pickup_date == today, Order.status.notin_(['picked_up', 'cancelled'])).all()
-    # Historie (Limit 50)
     orders_other = Order.query.filter((Order.pickup_date != today) | (Order.status.in_(['picked_up', 'cancelled']))).order_by(Order.pickup_date.desc()).limit(50).all()
     return render_template('admin_orders.html', orders_today=orders_today, orders_other=orders_other)
 
 @main.route('/admin/order/update/<int:order_id>', methods=['POST'])
 def update_order_status(order_id):
-    if session.get('user_email') not in ADMIN_EMAILS: return redirect(url_for('main.index'))
+    if not check_admin(): return redirect(url_for('main.index'))
     order = Order.query.get(order_id)
     order.status = request.form.get('status')
     db.session.commit()
@@ -294,24 +424,22 @@ def update_order_status(order_id):
 
 
 # ==============================================================================
-#  5. ADMIN: PRODUCTEN & RECEPTEN
+#  6. ADMIN: PRODUCTEN & RECEPTEN
 # ==============================================================================
 
 @main.route('/admin/products')
 def admin_products():
-    if session.get('user_email') not in ADMIN_EMAILS: return redirect(url_for('main.index'))
+    if not check_admin(): return redirect(url_for('main.index'))
     products = Product.query.order_by(Product.category, Product.name).all()
     return render_template('admin_products.html', products=products)
 
-# Handmatig Toevoegen
 @main.route('/admin/product/add', methods=['POST'])
 def add_product_manual():
-    if session.get('user_email') not in ADMIN_EMAILS: return redirect(url_for('main.index'))
+    if not check_admin(): return redirect(url_for('main.index'))
     try:
         img_name = 'logo.png'
         file = request.files.get('image_file')
         
-        # Eerst object maken
         new_prod = Product(
             name=request.form.get('name'), 
             description=request.form.get('description'),
@@ -323,7 +451,6 @@ def add_product_manual():
         db.session.add(new_prod)
         db.session.flush()
         
-        # Foto opslaan met ID
         if file and file.filename != '':
             fname = secure_filename(file.filename)
             unique = f"product_{new_prod.id}_{int(time.time())}_{fname}"
@@ -337,10 +464,10 @@ def add_product_manual():
         flash(f'Fout: {e}', 'danger')
     return redirect(url_for('main.admin_products'))
 
-# Updates (Prijs, Beschrijving, Categorie, Allergenen, Foto)
+# --- Updates ---
 @main.route('/admin/product/update_price', methods=['POST'])
 def update_product_price():
-    if session.get('user_email') not in ADMIN_EMAILS: return redirect(url_for('main.index'))
+    if not check_admin(): return redirect(url_for('main.index'))
     try:
         p = Product.query.get(request.form.get('product_id'))
         p.price = Decimal(request.form.get('price'))
@@ -351,7 +478,7 @@ def update_product_price():
 
 @main.route('/admin/product/update_description', methods=['POST'])
 def update_product_description():
-    if session.get('user_email') not in ADMIN_EMAILS: return redirect(url_for('main.index'))
+    if not check_admin(): return redirect(url_for('main.index'))
     try:
         p = Product.query.get(request.form.get('product_id'))
         p.description = request.form.get('description')
@@ -362,7 +489,7 @@ def update_product_description():
 
 @main.route('/admin/product/update_category', methods=['POST'])
 def update_product_category():
-    if session.get('user_email') not in ADMIN_EMAILS: return redirect(url_for('main.index'))
+    if not check_admin(): return redirect(url_for('main.index'))
     try:
         p = Product.query.get(request.form.get('product_id'))
         p.category = request.form.get('category')
@@ -373,7 +500,7 @@ def update_product_category():
 
 @main.route('/admin/product/update_allergens', methods=['POST'])
 def update_product_allergens():
-    if session.get('user_email') not in ADMIN_EMAILS: return redirect(url_for('main.index'))
+    if not check_admin(): return redirect(url_for('main.index'))
     try:
         p = Product.query.get(request.form.get('product_id'))
         p.allergens = request.form.get('allergens')
@@ -384,7 +511,7 @@ def update_product_allergens():
 
 @main.route('/admin/product/upload_image', methods=['POST'])
 def upload_product_image():
-    if session.get('user_email') not in ADMIN_EMAILS: return redirect(url_for('main.index'))
+    if not check_admin(): return redirect(url_for('main.index'))
     try:
         p = Product.query.get(request.form.get('product_id'))
         file = request.files.get('image_file')
@@ -400,7 +527,7 @@ def upload_product_image():
 
 @main.route('/admin/product/import', methods=['POST'])
 def import_products_excel():
-    if session.get('user_email') not in ADMIN_EMAILS: return redirect(url_for('main.index'))
+    if not check_admin(): return redirect(url_for('main.index'))
     file = request.files.get('file')
     if file:
         try:
@@ -421,7 +548,7 @@ def import_products_excel():
 
 @main.route('/admin/product/delete/<int:product_id>', methods=['POST'])
 def delete_product(product_id):
-    if session.get('user_email') not in ADMIN_EMAILS: return redirect(url_for('main.index'))
+    if not check_admin(): return redirect(url_for('main.index'))
     try:
         p = Product.query.get(product_id)
         db.session.delete(p)
@@ -430,27 +557,25 @@ def delete_product(product_id):
     except: flash('Kan niet verwijderen (nog in orders?).', 'danger')
     return redirect(url_for('main.admin_products'))
 
-# Recepten (Ingrediënten koppelen)
+# --- Recepten ---
 @main.route('/admin/product/<int:product_id>/recipe')
 def manage_recipe(product_id):
-    if session.get('user_email') not in ADMIN_EMAILS: return redirect(url_for('main.index'))
+    if not check_admin(): return redirect(url_for('main.index'))
     product = Product.query.get_or_404(product_id)
     all_ingredients = Ingredient.query.order_by(Ingredient.name).all()
     return render_template('admin_recipe.html', product=product, all_ingredients=all_ingredients)
 
 @main.route('/admin/product/<int:product_id>/recipe/add', methods=['POST'])
 def add_recipe_rule(product_id):
-    if session.get('user_email') not in ADMIN_EMAILS: return redirect(url_for('main.index'))
+    if not check_admin(): return redirect(url_for('main.index'))
     name = request.form.get('ingredient_name')
     try:
-        # Zoek of maak ingrediënt
         ing = Ingredient.query.filter(Ingredient.name.ilike(name)).first()
         if not ing:
             ing = Ingredient(name=name, unit=request.form.get('unit'), stock_quantity=0)
             db.session.add(ing)
             db.session.flush()
         
-        # Maak koppeling
         db.session.add(ProductIngredient(
             product_id=product_id, 
             ingredient_id=ing.id, 
@@ -463,7 +588,7 @@ def add_recipe_rule(product_id):
 
 @main.route('/admin/product/recipe/delete/<int:rule_id>', methods=['POST'])
 def delete_recipe_rule(rule_id):
-    if session.get('user_email') not in ADMIN_EMAILS: return redirect(url_for('main.index'))
+    if not check_admin(): return redirect(url_for('main.index'))
     try:
         rule = ProductIngredient.query.get(rule_id)
         pid = rule.product_id
@@ -474,28 +599,22 @@ def delete_recipe_rule(rule_id):
 
 
 # ==============================================================================
-#  6. AI FORECAST
+#  7. AI FORECAST
 # ==============================================================================
 
 @main.route('/admin/forecast/refresh', methods=['POST'])
 def refresh_forecast():
-    if 'user_id' not in session or session.get('user_email') not in ADMIN_EMAILS:
-        return redirect(url_for('main.index'))
-    
+    if not check_admin(): return redirect(url_for('main.index'))
     try:
-        # Hier roepen we hem aan met force_refresh=True!
         generate_smart_forecast(force_refresh=True)
-        flash('De voorspelling is opnieuw berekend.', 'success')
+        flash('Voorspelling ververst.', 'success')
     except Exception as e:
-        flash(f'Fout bij verversen: {e}', 'danger')
-        
+        flash(f'Fout: {e}', 'danger')
     return redirect(url_for('main.admin_forecast'))
 
 @main.route('/admin/forecast')
 def admin_forecast():
-    if 'user_id' not in session or session.get('user_email') not in ADMIN_EMAILS:
-        return redirect(url_for('main.index'))
-    
+    if not check_admin(): return redirect(url_for('main.index'))
     try:
         forecast, shop_tomorrow, shop_week, start, end = generate_smart_forecast()
     except Exception as e:

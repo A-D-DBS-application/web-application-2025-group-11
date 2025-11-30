@@ -5,24 +5,17 @@
     <div class="container hero-content">
         <div class="hero-text">
             <h1>
-                Welkom bij Bakkerij Oewist<br>
+                {{ settings.welcome_title }}<br>
                 <span style="font-size: 0.7em; font-weight: 600; opacity: 0.9;">
-                    waar geur, smaak en gezelligheid samenkomen!
+                    {{ settings.welcome_text }}
                 </span>
             </h1>
-            <p>In het hart van Knesselaere vind je Bakkerij Oewist, een plek
-                waar elke dag begint met de geur van versgebakken
-                brood, krokante koffiekoeken en ambachtelijke taarten.
-                Onze bakkers werken met pure ingrediënten, een flinke
-                portie liefde en een vleugje Vlaamse gezelligheid. Of je 
-                nu langskomt voor een knapperig stokbrood, een zachte sandwich
-                of een zoete traktatie bij de koffie -
-                bij Oewist proef je de echte smaak van ambacht.
-            </p>
+            
+            <p>{{ settings.intro_text }}</p>
             
             <div class="alert-box">
                 <span class="alert-icon">!</span>
-                <p><strong>bestel voor 17u00</strong> om je bestelling vanaf morgen op te halen</p>
+                <p><strong>bestel voor {{ settings.deadline_hour }}u00</strong> om je bestelling vanaf morgen op te halen</p>
             </div>
         </div>
         <div class="hero-image">
@@ -98,7 +91,7 @@
                             <button type="submit" class="btn-bestel">Bestel</button>
                         </div>
                     </form>
-                    </div>
+                </div>
             </article>
         {% else %}
             <p>Er zijn nog geen producten gevonden in deze categorie.</p>
