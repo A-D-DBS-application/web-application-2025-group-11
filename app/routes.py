@@ -477,20 +477,35 @@ def delete_recipe_rule(rule_id):
 #  6. AI FORECAST
 # ==============================================================================
 
-@main.route('/admin/forecast')
-def admin_forecast():
-    if session.get('user_email') not in ADMIN_EMAILS: return redirect(url_for('main.index'))
+@main.route('/admin/forecast/refresh', methods=['POST'])
+def refresh_forecast():
+    if 'user_id' not in session or session.get('user_email') not in ADMIN_EMAILS:
+        return redirect(url_for('main.index'))
     
     try:
-        # Dit roept je slimme algoritme aan + boodschappenlijst
-        forecast, shopping_list, start, end = generate_smart_forecast()
+        # Hier roepen we hem aan met force_refresh=True!
+        generate_smart_forecast(force_refresh=True)
+        flash('De voorspelling is opnieuw berekend.', 'success')
+    except Exception as e:
+        flash(f'Fout bij verversen: {e}', 'danger')
+        
+    return redirect(url_for('main.admin_forecast'))
+
+@main.route('/admin/forecast')
+def admin_forecast():
+    if 'user_id' not in session or session.get('user_email') not in ADMIN_EMAILS:
+        return redirect(url_for('main.index'))
+    
+    try:
+        forecast, shop_tomorrow, shop_week, start, end = generate_smart_forecast()
     except Exception as e:
         print(f"Error AI: {e}")
-        forecast, shopping_list = [], []
+        forecast, shop_tomorrow, shop_week = [], [], []
         start, end = date.today(), date.today()
 
     return render_template('admin_forecast.html', 
                            forecast=forecast, 
-                           shopping_list=shopping_list, 
+                           shop_tomorrow=shop_tomorrow, 
+                           shop_week=shop_week, 
                            start_date=start, 
                            end_date=end)

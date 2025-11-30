@@ -14,10 +14,9 @@ def is_special_day(d):
     """
     Bepaalt of een datum een speciale dag is voor de bakkerij.
     """
-    # 1. Check officiële Belgische feestdagen (Wettelijk: Kerst, Nieuwjaar, Pasen...)
+    # 1. Check officiële Belgische feestdagen
     be_holidays = holidays.BE(years=d.year)
-    if d in be_holidays:
-        return 1
+    if d in be_holidays: return 1
     
     # 2. Vaste Datums (Bakkers toppers)
     if d.month == 12 and d.day == 6: return 1  # Sinterklaas
@@ -25,37 +24,37 @@ def is_special_day(d):
     if d.month == 1 and d.day == 6: return 1   # Driekoningen
 
     # 3. Variabele Zondagen
-    if d.weekday() == 6: # Zondag
+    if d.weekday() == 6: 
         # Moederdag (2e zondag mei)
         if d.month == 5 and 8 <= d.day <= 14: return 1
         # Vaderdag (2e zondag juni)
         if d.month == 6 and 8 <= d.day <= 14: return 1
 
     # 4. Verloren Maandag (Eerste maandag na Driekoningen)
-    # Dit is altijd een maandag tussen 7 en 13 januari
     if d.month == 1 and d.weekday() == 0 and 7 <= d.day <= 13:
         return 1
         
     return 0
 
-def generate_smart_forecast():
+def generate_smart_forecast(force_refresh=False):
     global _cached_forecast, _last_calculation_time
     
-    # 1. CHECK CACHE (1 uur geldig)
-    if _cached_forecast and _last_calculation_time:
+    # 1. CHECK CACHE (Alleen als we NIET dwingen)
+    if not force_refresh and _cached_forecast and _last_calculation_time:
         if datetime.now() - _last_calculation_time < timedelta(minutes=60):
             print("--- ⚡️ CACHE GEBRUIKT ---")
             return _cached_forecast
 
-    print("--- 🧠 AI ALGORITME STARTEN ---")
+    print("--- 🧠 AI ALGORITME & INKOOP BEREKENING STARTEN ---")
 
-    # 2. DATA OPHALEN
+    # 2. DATA OPHALEN (Alleen van het laatste jaar om crash te voorkomen)
     sql = text("""
         SELECT orders.pickup_date, products.name, order_items.quantity
         FROM order_items
         JOIN orders ON order_items.order_id = orders.id
         JOIN products ON order_items.product_id = products.id
         WHERE orders.status != 'cancelled'
+        AND orders.pickup_date >= CURRENT_DATE - INTERVAL '370 days'
     """)
 
     try:
@@ -63,7 +62,7 @@ def generate_smart_forecast():
             df = pd.read_sql(sql, conn)
             
         if df.empty:
-            return [], [], date.today(), date.today()
+            return [], [], [], date.today(), date.today()
 
         df['pickup_date'] = pd.to_datetime(df['pickup_date'])
         
@@ -84,13 +83,11 @@ def generate_smart_forecast():
         for product_name in unique_products:
             product_data = daily_sales[daily_sales['name'] == product_name].copy()
             
-            # Minimaal 5 dagen data nodig
             if len(product_data) < 5: continue
 
             X = product_data[['date_ordinal', 'weekday', 'is_holiday']]
             y = product_data['quantity']
 
-            # Random Forest is slim genoeg om niet-lineaire patronen (zoals zondagen) te leren
             model = RandomForestRegressor(n_estimators=100, random_state=42)
             model.fit(X, y)
 
@@ -126,48 +123,61 @@ def generate_smart_forecast():
 
         forecast_results.sort(key=lambda x: x['tomorrow'], reverse=True)
 
-        # --- DEEL B: INGREDIËNTEN BEREKENEN (MRP) ---
-        ingredients_needed = {} 
+        # --- DEEL B: INGREDIËNTEN BEREKENEN ---
+        ing_tomorrow = {} 
+        ing_week = {}
 
         for forecast_item in forecast_results:
-            qty_to_bake = forecast_item['tomorrow']
-            if qty_to_bake == 0: continue
+            qty_tom = forecast_item['tomorrow']
+            qty_week = forecast_item['week_total']
 
             product = Product.query.filter_by(name=forecast_item['product_name']).first()
-            
             if product and product.ingredients:
                 for rule in product.ingredients:
-                    ing_name = rule.ingredient.name
-                    amount_needed = rule.quantity_needed * qty_to_bake
-                    unit = rule.ingredient.unit
+                    i_name = rule.ingredient.name
+                    i_unit = rule.ingredient.unit
+                    i_stock = rule.ingredient.stock_quantity
 
-                    if ing_name in ingredients_needed:
-                        ingredients_needed[ing_name]['amount'] += amount_needed
-                    else:
-                        ingredients_needed[ing_name] = {
-                            'amount': amount_needed,
-                            'unit': unit,
-                            'current_stock': rule.ingredient.stock_quantity
-                        }
+                    needed_tom = rule.quantity_needed * qty_tom
+                    needed_week = rule.quantity_needed * qty_week
 
-        shopping_list = []
-        for name, data in ingredients_needed.items():
-            shopping_list.append({
-                'name': name,
-                'amount': round(data['amount'], 1),
-                'unit': data['unit'],
-                'current_stock': data['current_stock'],
-                'status': 'Tekort ⚠️' if data['amount'] > data['current_stock'] else 'Voldoende ✅'
-            })
-        
-        shopping_list.sort(key=lambda x: x['name'])
+                    if i_name in ing_tomorrow: ing_tomorrow[i_name]['amount'] += needed_tom
+                    else: ing_tomorrow[i_name] = {'amount': needed_tom, 'unit': i_unit, 'stock': i_stock}
+                    
+                    if i_name in ing_week: ing_week[i_name]['amount'] += needed_week
+                    else: ing_week[i_name] = {'amount': needed_week, 'unit': i_unit, 'stock': i_stock}
 
-        # Cache updaten
-        _cached_forecast = (forecast_results, shopping_list, start_prediction, end_prediction)
+        # Synchroniseren (zodat tabellen even lang zijn)
+        all_ingredients = set(ing_tomorrow.keys()) | set(ing_week.keys())
+        for name in all_ingredients:
+            if name not in ing_tomorrow:
+                ref = ing_week[name]
+                ing_tomorrow[name] = {'amount': 0, 'unit': ref['unit'], 'stock': ref['stock']}
+            if name not in ing_week:
+                ref = ing_tomorrow[name]
+                ing_week[name] = {'amount': 0, 'unit': ref['unit'], 'stock': ref['stock']}
+
+        def format_list(d):
+            lst = []
+            for name, data in d.items():
+                lst.append({
+                    'name': name, 
+                    'amount': round(data['amount'], 1), 
+                    'unit': data['unit'], 
+                    'stock': data['stock'],
+                    'status': 'Tekort ⚠️' if data['amount'] > data['stock'] else 'Voldoende ✅'
+                })
+            return sorted(lst, key=lambda x: x['name'])
+
+        shop_tomorrow = format_list(ing_tomorrow)
+        shop_week = format_list(ing_week)
+
+        # Cache update
+        _cached_forecast = (forecast_results, shop_tomorrow, shop_week, start_prediction, end_prediction)
         _last_calculation_time = datetime.now()
         
-        return forecast_results, shopping_list, start_prediction, end_prediction
+        return forecast_results, shop_tomorrow, shop_week, start_prediction, end_prediction
 
     except Exception as e:
         print(f"Fout in algoritme: {e}")
-        return [], [], date.today(), date.today()
+        return [], [], [], date.today(), date.today()

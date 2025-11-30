@@ -21,7 +21,7 @@ def is_special_day(d):
 def ensure_shop_profile():
     shop_profile = Profile.query.filter(Profile.full_name.ilike("%Winkel%")).first()
     if not shop_profile:
-        print("❌ FOUT: Kan profiel 'Winkelverkoop' niet vinden! Maak dit eerst aan.")
+        print("❌ FOUT: Kan profiel 'Winkelverkoop' niet vinden! Maak dit eerst aan via de website.")
         return None
     return shop_profile
 
@@ -38,16 +38,14 @@ def run_history_seeder():
 
         orders_created = 0
         
-        # Loop van 1 jaar geleden tot 1 week in de toekomst
         for i in range(-DAYS_BACK, DAYS_FORWARD):
-            current_date = datetime.now() + timedelta(days=i) 
-            d_date = current_date.date()
+            pickup_date_obj = datetime.now() + timedelta(days=i) 
+            d_date = pickup_date_obj.date()
             
-            month = current_date.month
-            day = current_date.day
-            weekday = current_date.weekday() 
+            month = pickup_date_obj.month
+            day = pickup_date_obj.day
+            weekday = pickup_date_obj.weekday() 
             
-            # DRUKTE
             holiday_multiplier = 1
             if is_special_day(d_date): holiday_multiplier = 3
 
@@ -70,18 +68,30 @@ def run_history_seeder():
             total_today = online + walk_in
 
             for k in range(total_today):
+                is_online = False
                 if k < online:
+                    is_online = True
                     customer = random.choice(real_users)
                     remarks = "Online"
                 else:
                     customer = shop_profile
                     remarks = "Winkelverkoop"
 
+                if is_online:
+                    days_before = random.randint(1, 5)
+                    order_placed_date = pickup_date_obj - timedelta(days=days_before)
+                else:
+                
+                    order_placed_date = pickup_date_obj
+
+                order_placed_date = order_placed_date.replace(hour=random.randint(8, 22), minute=random.randint(0, 59))
+
                 order = Order(
                     user_id=customer.id,
                     status=status,
                     pickup_date=d_date,
-                    order_date=current_date, 
+                    order_date=order_placed_date,  
+                    created_at=order_placed_date,
                     total_price=0,
                     remarks=remarks
                 )
@@ -104,16 +114,12 @@ def run_history_seeder():
                 db.session.add(order)
                 orders_created += 1
             
-            # --- BELANGRIJKE VERANDERING: OPSLAAN PER DAG ---
-            # We slaan de data elke dag op, in plaats van alles in 1 keer.
-            # Dit voorkomt dat de database verbinding verbroken wordt.
             try:
                 db.session.commit()
-                # Print een puntje voor elke dag zodat je ziet dat hij leeft
                 print(".", end="", flush=True) 
             except Exception as e:
                 db.session.rollback()
-                print(f"Fout bij dag {d_date}: {e}")
+                print(f"Fout: {e}")
 
         print(f"\n\n--- ✅ KLAAR! {orders_created} orders gegenereerd. ---")
 

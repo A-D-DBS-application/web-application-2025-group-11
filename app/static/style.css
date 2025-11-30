@@ -532,6 +532,32 @@ h1 {
 
 .alert-row { background-color: #fff5f5; }
 
+.text-grey {
+    color: #ccc;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-weight: bold;
+    font-size: 0.85rem;
+    text-align: center;
+    min-width: 80px; /* Vaste breedte: zorgt voor perfecte uitlijning */
+}
+
+.status-ok {
+    background-color: #e8f5e9;
+    color: #2e7d32;
+    border: 1px solid #c8e6c9;
+}
+
+.status-warn {
+    background-color: #fff3e0;
+    color: #e65100;
+    border: 1px solid #ffe0b2;
+}
+
 /* =========================================
    8. MELDINGEN (Alerts)
    ========================================= */
