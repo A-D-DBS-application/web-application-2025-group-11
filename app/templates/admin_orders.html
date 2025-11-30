@@ -6,7 +6,7 @@
     <div class="admin-header-container">
         <div class="admin-header-text">
             <h1>Orderbeheer</h1>
-            <p>Overzicht van actieve bestellingen.</p>
+            <p>Overzicht van actieve bestellingen, planning en archief.</p>
         </div>
         
         <div style="display: flex; gap: 8px;">
@@ -18,17 +18,17 @@
         </div>
     </div>
 
-    <div style="margin-bottom: 40px;">
-        <h2 style="color: #E63946; border-bottom: 2px solid #E63946; display: inline-block; padding-bottom: 5px; margin-bottom: 15px;">
+    <div style="margin-bottom: 50px;">
+        <h3 style="color: #E63946; border-bottom: 2px solid #E63946; display: inline-block; padding-bottom: 5px; margin-bottom: 15px;">
             📅 VANDAAG TE DOEN
-        </h2>
+        </h3>
         
         {% if orders_today %}
-            <div class="cart-container" style="border: 2px solid #E63946;">
+            <div class="cart-container" style="border: 2px solid #E63946; padding: 0; overflow: hidden;">
                 <table style="width: 100%; border-collapse: collapse;">
                     <thead>
                         <tr style="border-bottom: 2px solid #eee; text-align: left; color: #593C28; background-color: #fff5f5;">
-                            <th style="padding: 15px;">Datum/ID</th>
+                            <th style="padding: 15px;">Tijd/ID</th>
                             <th style="padding: 15px;">Klant</th>
                             <th style="padding: 15px;">Bestelling</th>
                             <th style="padding: 15px;">Status</th>
@@ -47,13 +47,14 @@
         {% endif %}
     </div>
 
-    <div>
-        <h3 style="color: #593C28; margin-bottom: 15px;">Alle andere bestellingen</h3>
-        <div class="cart-container">
+    <div style="margin-bottom: 50px;" id="future-section">
+        <h3 style="color: #2E7D32; margin-bottom: 15px;">Toekomstige orders</h3>
+        
+        <div class="cart-container" style="padding: 0; overflow: hidden; border-top: 4px solid #2E7D32;">
             <table style="width: 100%; border-collapse: collapse;">
                 <thead>
                     <tr style="border-bottom: 2px solid #eee; text-align: left; color: #593C28;">
-                        <th style="padding: 15px;">Datum/ID</th>
+                        <th style="padding: 15px;">Datum</th>
                         <th style="padding: 15px;">Klant</th>
                         <th style="padding: 15px;">Bestelling</th>
                         <th style="padding: 15px;">Status</th>
@@ -61,12 +62,69 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for order in orders_other %}
+                    {% for order in pagination_future.items %}
+                        {% include 'partials/order_row.html' %}
+                    {% else %}
+                        <tr><td colspan="5" style="padding: 20px; text-align: center; color: #666;">Geen toekomstige bestellingen.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if pagination_future.pages > 1 %}
+        <div style="display: flex; justify-content: center; align-items: center; gap: 15px; margin-top: 15px;">
+            {% if pagination_future.has_prev %}
+                <a href="{{ url_for('main.admin_orders', page_future=pagination_future.prev_num, page_history=pagination_history.page, _anchor='future-section') }}" 
+                   class="btn-admin-nav" style="background-color: white; color: #593C28; border: 1px solid #ccc;">&larr;</a>
+            {% endif %}
+            
+            <span style="font-weight: bold; color: #666; font-size: 0.9em;">Pagina {{ pagination_future.page }} van {{ pagination_future.pages }}</span>
+            
+            {% if pagination_future.has_next %}
+                <a href="{{ url_for('main.admin_orders', page_future=pagination_future.next_num, page_history=pagination_history.page, _anchor='future-section') }}" 
+                   class="btn-admin-nav" style="background-color: white; color: #593C28; border: 1px solid #ccc;">&rarr;</a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+
+    <div id="history-section">
+        <h3 style="color: #666; margin-bottom: 15px;">Orders verleden</h3>
+        <div class="cart-container" style="padding: 0; overflow: hidden; opacity: 0.9;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="border-bottom: 2px solid #eee; text-align: left; color: #666; background-color: #f9f9f9;">
+                        <th style="padding: 15px;">Datum</th>
+                        <th style="padding: 15px;">Klant</th>
+                        <th style="padding: 15px;">Bestelling</th>
+                        <th style="padding: 15px;">Status</th>
+                        <th style="padding: 15px;">Actie</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for order in pagination_history.items %}
                         {% include 'partials/order_row.html' %}
                     {% endfor %}
                 </tbody>
             </table>
         </div>
+
+        {% if pagination_history.pages > 1 %}
+        <div style="display: flex; justify-content: center; align-items: center; gap: 15px; margin-top: 20px;">
+            {% if pagination_history.has_prev %}
+                <a href="{{ url_for('main.admin_orders', page_history=pagination_history.prev_num, page_future=pagination_future.page, _anchor='history-section') }}" 
+                   class="btn-admin-nav" style="background-color: white; color: #593C28; border: 1px solid #ccc;">&larr; Vorige</a>
+            {% endif %}
+            
+            <span style="font-weight: bold; color: #666;">Pagina {{ pagination_history.page }} van {{ pagination_history.pages }}</span>
+            
+            {% if pagination_history.has_next %}
+                <a href="{{ url_for('main.admin_orders', page_history=pagination_history.next_num, page_future=pagination_future.page, _anchor='history-section') }}" 
+                   class="btn-admin-nav" style="background-color: white; color: #593C28; border: 1px solid #ccc;">Volgende &rarr;</a>
+            {% endif %}
+        </div>
+        {% endif %}
     </div>
+
 </div>
 {% endblock %}

@@ -85,9 +85,12 @@ def my_orders():
         return redirect(url_for('main.login'))
     
     user_id = session['user_id']
-    orders = Order.query.filter_by(user_id=user_id).order_by(Order.created_at.desc()).all()
-    return render_template('my_orders.html', orders=orders)
-
+    page = request.args.get('page', 1, type=int)
+    
+    pagination = Order.query.filter_by(user_id=user_id)\
+                            .order_by(Order.created_at.desc())\
+                            .paginate(page=page, per_page=10, error_out=False)
+    return render_template('my_orders.html', pagination=pagination)
 
 # ==============================================================================
 #  2. AUTHENTICATIE
@@ -408,10 +411,34 @@ def waste_ingredient():
 @main.route('/admin/orders')
 def admin_orders():
     if not check_admin(): return redirect(url_for('main.index'))
+    
     today = date.today()
-    orders_today = Order.query.filter(Order.pickup_date == today, Order.status.notin_(['picked_up', 'cancelled'])).all()
-    orders_other = Order.query.filter((Order.pickup_date != today) | (Order.status.in_(['picked_up', 'cancelled']))).order_by(Order.pickup_date.desc()).limit(50).all()
-    return render_template('admin_orders.html', orders_today=orders_today, orders_other=orders_other)
+    
+    # 1. Haal paginanummers op uit de URL (standaard 1)
+    page_future = request.args.get('page_future', 1, type=int)
+    page_history = request.args.get('page_history', 1, type=int)
+    
+    # 2. VANDAAG (Alles tonen, geen limiet, dit is prioriteit)
+    orders_today = Order.query.filter(
+        Order.pickup_date == today, 
+        Order.status.notin_(['picked_up', 'cancelled'])
+    ).all()
+    
+    # 3. TOEKOMST (Met Paginering!)
+    pagination_future = Order.query.filter(
+        Order.pickup_date > today
+    ).order_by(Order.pickup_date.asc()).paginate(page=page_future, per_page=15, error_out=False)
+    
+    # 4. HISTORIE (Met Paginering!)
+    pagination_history = Order.query.filter(
+        (Order.pickup_date < today) | 
+        ((Order.pickup_date == today) & (Order.status.in_(['picked_up', 'cancelled'])))
+    ).order_by(Order.pickup_date.desc()).paginate(page=page_history, per_page=15, error_out=False)
+    
+    return render_template('admin_orders.html', 
+                           orders_today=orders_today, 
+                           pagination_future=pagination_future,   # <--- Nieuw object
+                           pagination_history=pagination_history) # <--- Hernoemd voor duidelijkheid
 
 @main.route('/admin/order/update/<int:order_id>', methods=['POST'])
 def update_order_status(order_id):
