@@ -239,14 +239,22 @@ def checkout():
     if not cart_dict: return redirect(url_for('main.view_cart'))
     
     pickup_date_str = request.form.get('pickup_date')
+    
     try:
         pickup_date_obj = datetime.strptime(pickup_date_str, '%Y-%m-%d').date()
+        
+        # --- LOGICA SPRINT 1 PUNT 4: VOORRAAD CHECK ---
+        # Als bestelling > 3 dagen in toekomst is -> GEEN voorraad check (bakker kan inkopen)
+        # Als bestelling <= 3 dagen is -> WEL voorraad check
+        
+        days_until_pickup = (pickup_date_obj - date.today()).days
+        should_check_stock = days_until_pickup <= 3
         
         product_ids = [int(id) for id in cart_dict.keys()]
         products = Product.query.filter(Product.id.in_(product_ids)).all()
         products_map = {str(p.id): p for p in products} 
         
-        # ERP Check (Voorraad)
+        # Bereken benodigde ingrediënten
         ingredients_needed = {}
         for pid, qty in cart_dict.items():
             prod = products_map[pid]
@@ -257,12 +265,14 @@ def checkout():
                 else:
                     ingredients_needed[rule.ingredient.id] = {'obj': rule.ingredient, 'amount': needed}
         
-        for ing_id, data in ingredients_needed.items():
-            if data['obj'].stock_quantity < data['amount']:
-                flash(f"Te weinig voorraad voor {data['obj'].name}", 'danger')
-                return redirect(url_for('main.view_cart'))
+        # Voer de check ALLEEN uit als het kort dag is
+        if should_check_stock:
+            for ing_id, data in ingredients_needed.items():
+                if data['obj'].stock_quantity < data['amount']:
+                    flash(f"Te weinig voorraad voor {data['obj'].name}. Kies een latere datum (>3 dagen) of neem een ander product.", 'danger')
+                    return redirect(url_for('main.view_cart'))
         
-        # Order maken
+        # --- ORDER AANMAKEN ---
         total_price = sum(products_map[pid].price * Decimal(qty) for pid, qty in cart_dict.items())
         new_order = Order(
             user_id=session['user_id'], 
@@ -278,19 +288,26 @@ def checkout():
         for pid, qty in cart_dict.items():
             db.session.add(OrderItem(order_id=new_order.id, product_id=pid, quantity=qty, unit_price_at_order=products_map[pid].price))
         
-        # Voorraad afboeken
+        # Voorraad afboeken (DIT GEBEURT ALTIJD, ook als voorraad negatief wordt)
+        # Hierdoor ziet de admin in 'Inventory' dat hij in de min staat en moet bijbestellen.
         for ing_id, data in ingredients_needed.items():
             data['obj'].stock_quantity -= data['amount']
             db.session.add(data['obj'])
             
         db.session.commit()
         session.pop('cart', None)
-        flash('Bestelling succesvol geplaatst!', 'success')
+        
+        if not should_check_stock:
+            flash('Bestelling succesvol geplaatst!', 'success')
+        else:
+            flash('Bestelling succesvol geplaatst!', 'success')
+            
         return redirect(url_for('main.index'))
         
     except Exception as e:
         db.session.rollback()
         print(e)
+        flash('Er ging iets mis met de bestelling.', 'danger')
         return redirect(url_for('main.view_cart'))
 
 

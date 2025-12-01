@@ -72,17 +72,28 @@
         </div>
 
         {% if pagination_future.pages > 1 %}
-        <div style="display: flex; justify-content: center; align-items: center; gap: 15px; margin-top: 15px;">
+        <div style="display: flex; justify-content: center; align-items: center; gap: 5px; margin-top: 15px;">
             {% if pagination_future.has_prev %}
                 <a href="{{ url_for('main.admin_orders', page_future=pagination_future.prev_num, page_history=pagination_history.page, _anchor='future-section') }}" 
-                   class="btn-admin-nav" style="background-color: white; color: #593C28; border: 1px solid #ccc;">&larr;</a>
+                   class="btn-admin-nav" style="padding: 5px 10px;">&larr;</a>
             {% endif %}
-            
-            <span style="font-weight: bold; color: #666; font-size: 0.9em;">Pagina {{ pagination_future.page }} van {{ pagination_future.pages }}</span>
+
+            {% for page_num in pagination_future.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
+                {% if page_num %}
+                    {% if pagination_future.page == page_num %}
+                        <span class="btn-admin-nav" style="background-color: #593C28; color: white; border-color: #593C28; cursor: default; padding: 5px 10px;">{{ page_num }}</span>
+                    {% else %}
+                        <a href="{{ url_for('main.admin_orders', page_future=page_num, page_history=pagination_history.page, _anchor='future-section') }}" 
+                           class="btn-admin-nav" style="background-color: white; color: #593C28; padding: 5px 10px;">{{ page_num }}</a>
+                    {% endif %}
+                {% else %}
+                    <span style="color: #999;">...</span>
+                {% endif %}
+            {% endfor %}
             
             {% if pagination_future.has_next %}
                 <a href="{{ url_for('main.admin_orders', page_future=pagination_future.next_num, page_history=pagination_history.page, _anchor='future-section') }}" 
-                   class="btn-admin-nav" style="background-color: white; color: #593C28; border: 1px solid #ccc;">&rarr;</a>
+                   class="btn-admin-nav" style="padding: 5px 10px;">&rarr;</a>
             {% endif %}
         </div>
         {% endif %}
@@ -110,17 +121,28 @@
         </div>
 
         {% if pagination_history.pages > 1 %}
-        <div style="display: flex; justify-content: center; align-items: center; gap: 15px; margin-top: 20px;">
+        <div style="display: flex; justify-content: center; align-items: center; gap: 5px; margin-top: 20px;">
             {% if pagination_history.has_prev %}
                 <a href="{{ url_for('main.admin_orders', page_history=pagination_history.prev_num, page_future=pagination_future.page, _anchor='history-section') }}" 
-                   class="btn-admin-nav" style="background-color: white; color: #593C28; border: 1px solid #ccc;">&larr; Vorige</a>
+                   class="btn-admin-nav" style="padding: 5px 10px;">&larr; Vorige</a>
             {% endif %}
             
-            <span style="font-weight: bold; color: #666;">Pagina {{ pagination_history.page }} van {{ pagination_history.pages }}</span>
+            {% for page_num in pagination_history.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
+                {% if page_num %}
+                    {% if pagination_history.page == page_num %}
+                        <span class="btn-admin-nav" style="background-color: #593C28; color: white; border-color: #593C28; cursor: default; padding: 5px 10px;">{{ page_num }}</span>
+                    {% else %}
+                        <a href="{{ url_for('main.admin_orders', page_history=page_num, page_future=pagination_future.page, _anchor='history-section') }}" 
+                           class="btn-admin-nav" style="background-color: white; color: #593C28; padding: 5px 10px;">{{ page_num }}</a>
+                    {% endif %}
+                {% else %}
+                    <span style="color: #999;">...</span>
+                {% endif %}
+            {% endfor %}
             
             {% if pagination_history.has_next %}
                 <a href="{{ url_for('main.admin_orders', page_history=pagination_history.next_num, page_future=pagination_future.page, _anchor='history-section') }}" 
-                   class="btn-admin-nav" style="background-color: white; color: #593C28; border: 1px solid #ccc;">Volgende &rarr;</a>
+                   class="btn-admin-nav" style="padding: 5px 10px;">Volgende &rarr;</a>
             {% endif %}
         </div>
         {% endif %}

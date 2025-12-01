@@ -22,14 +22,14 @@
                             
                             <div style="display: flex; align-items: center; gap: 10px; margin-top: 8px;">
                                 <form action="{{ url_for('main.decrease_from_cart', product_id=item.product.id) }}" method="POST" style="margin:0;">
-                                    <button type="submit" class="quantity-btn" style="width: 25px; height: 25px; padding: 0; border-radius: 4px;">-</button>
+                                    <button type="submit" class="quantity-btn" style="width: 25px; height: 25px; padding: 0; border-radius: 4px; cursor: pointer;">-</button>
                                 </form>
                                 
                                 <span style="font-weight: bold; color: #333; min-width: 20px; text-align: center;">{{ item.quantity }}</span>
                             
                                 <form action="{{ url_for('main.add_to_cart', product_id=item.product.id) }}" method="POST" style="margin:0;">
                                     <input type="hidden" name="quantity" value="1">
-                                    <button type="submit" class="quantity-btn" style="width: 25px; height: 25px; padding: 0; border-radius: 4px;">+</button>
+                                    <button type="submit" class="quantity-btn" style="width: 25px; height: 25px; padding: 0; border-radius: 4px; cursor: pointer;">+</button>
                                 </form>
                             </div>
                         </div>
@@ -39,7 +39,7 @@
                         <span style="font-weight: bold; color: #593C28; font-size: 1.1em;">€ {{ item.total_price }}</span>
                         
                         <form action="{{ url_for('main.remove_from_cart', product_id=item.product.id) }}" method="POST" onsubmit="return confirm('Weet je zeker dat je dit product wilt verwijderen?');">
-                            <button type="submit" class="remove-from-cart-btn" title="Verwijderen">×</button>
+                            <button type="submit" class="remove-from-cart-btn" title="Verwijderen" style="background:none; border:none; color:#E63946; font-size:1.5em; cursor:pointer;">×</button>
                         </form>
                     </div>
                 </div>
@@ -60,15 +60,15 @@
                     <div style="margin-bottom: 15px;">
                         <label for="pickup_date" style="display: block; margin-bottom: 5px; font-weight: bold; color: #593C28;">Gewenste ophaaldatum:</label>
                         
-                        <input type="date" 
+                        <input type="text" 
                                id="pickup_date" 
                                name="pickup_date" 
                                class="form-control" 
                                required 
-                               min="{{ min_date_str }}" 
+                               placeholder="Klik om datum te kiezen..."
+                               data-min-date="{{ min_date_str }}" 
                                data-closed-days='{{ closed_days | tojson }}'
-                               onkeydown="return false"
-                               style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 1em;">
+                               style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 1em; background-color: white;">
                     </div>
 
                     <div style="margin-bottom: 20px;">
@@ -98,24 +98,29 @@
         const dateInput = document.getElementById('pickup_date');
         
         if (dateInput) {
-            // 1. Haal de data veilig uit het HTML attribuut
+            // 1. Data uitlezen uit HTML
+            const minDate = dateInput.dataset.minDate;
             const closedDaysData = dateInput.dataset.closedDays;
-            
-            // 2. Zet om naar een echte lijst (Array). Als leeg, gebruik [].
+            // Parse de lijst met gesloten dagen (bv. [0, 6] voor Zo/Za)
             const closedDays = closedDaysData ? JSON.parse(closedDaysData) : [];
 
-            // 3. Luister naar veranderingen
-            dateInput.addEventListener('input', function() {
-                if (!this.value) return;
-
-                const selectedDate = new Date(this.value);
-                const dayOfWeek = selectedDate.getDay(); // 0 = Zondag, 1 = Maandag...
+            // 2. Kalender starten
+            flatpickr("#pickup_date", {
+                locale: "nl",
+                dateFormat: "Y-m-d",
+                minDate: minDate,
                 
-                // Check of de dag in de lijst met gesloten dagen zit
-                if (closedDays.includes(dayOfWeek)) {
-                    alert('⚠️ Helaas, op deze weekdag is de winkel gesloten volgens de instellingen. Kies alstublieft een andere datum.');
-                    this.value = ''; // Wis de datum
-                }
+                // HIER ZORGEN WE DAT DE DAGEN ECHT GRIJS ZIJN:
+                disable: [
+                    function(date) {
+                        // date.getDay() geeft 0 (zondag) t/m 6 (zaterdag)
+                        // Als deze dag in onze 'closedDays' lijst zit, blokkeren we hem.
+                        return closedDays.includes(date.getDay());
+                    }
+                ],
+                
+                disableMobile: "true", // Zorgt dat je altijd onze mooie kalender ziet, ook op mobiel
+                firstDayOfWeek: 1      // Maandag als eerste dag van de week
             });
         }
     });
