@@ -8,13 +8,21 @@
             <h1>Orderbeheer</h1>
             <p>Overzicht van actieve bestellingen, planning en archief.</p>
         </div>
-        
         <div style="display: flex; gap: 8px;">
             <a href="{{ url_for('main.admin_inventory') }}" class="btn-admin-nav">Voorraad</a>
             <a href="{{ url_for('main.admin_products') }}" class="btn-admin-nav">Producten</a>   
-            <a href="{{ url_for('main.admin_orders') }}" class="btn-admin-nav" style="background-color: white; color: #593C28; border: 2px solid #eee;">Orders</a> 
+            <a href="{{ url_for('main.admin_orders') }}" class="btn-admin-nav" style="background: white; color: #593C28; border: 2px solid #eee;">Orders</a> 
             <a href="{{ url_for('main.admin_forecast') }}" class="btn-admin-nav">Forecast</a>
             <a href="{{ url_for('main.admin_settings') }}" class="btn-admin-nav">Settings</a>
+        </div>
+    </div>
+
+    <div style="margin-bottom: 20px;">
+        <h3 style="color: #593C28; margin-bottom: 10px;">🔎 Filter Orders (Vandaag)</h3>
+        <div class="filter-btn-group">
+            <button class="filter-action-btn active" onclick="filterOrders('all', this)">Alles</button>
+            <button class="filter-action-btn" onclick="filterOrders('pending', this)">Nog Te Doen</button>
+            <button class="filter-action-btn" onclick="filterOrders('ready', this)">Staat Klaar</button>
         </div>
     </div>
 
@@ -24,7 +32,7 @@
         </h3>
         
         {% if orders_today %}
-            <div class="cart-container" style="border: 2px solid #E63946; padding: 0; overflow: hidden;">
+            <div class="cart-container table-responsive" style="border: 2px solid #E63946; padding: 0;">
                 <table style="width: 100%; border-collapse: collapse;">
                     <thead>
                         <tr style="border-bottom: 2px solid #eee; text-align: left; color: #593C28; background-color: #fff5f5;">
@@ -35,9 +43,56 @@
                             <th style="padding: 15px;">Actie</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="orders-today-body">
                         {% for order in orders_today %}
-                            {% include 'partials/order_row.html' %}
+                            <tr class="order-row status-{{ order.status }}" style="border-bottom: 1px solid #f0f0f0;">
+                                <td style="padding: 15px; color: #888;">
+                                    {% if order.pickup_date %}
+                                        <div style="font-weight: bold; color: #333;">{{ order.pickup_date.strftime('%d-%m') }}</div>
+                                    {% else %}
+                                        <div style="font-weight: bold; color: #ccc;">?</div>
+                                    {% endif %}
+                                    <small>#{{ order.id }}</small>
+                                </td>
+                                <td style="padding: 15px;">
+                                    <strong>{{ order.profile.full_name }}</strong>
+                                    {% if order.remarks %}
+                                        <br><small style="color: #E63946;">Note: {{ order.remarks }}</small>
+                                    {% endif %}
+                                </td>
+                                <td style="padding: 15px;">
+                                    <ul style="font-size: 0.85em; padding-left: 15px; list-style-type: disc;">
+                                    {% for item in order.items %}
+                                        <li>{{ item.quantity }}x {{ item.product.name }}</li>
+                                    {% endfor %}
+                                    </ul>
+                                    <div style="margin-top: 5px; font-weight: bold;">€ {{ order.total_price }}</div>
+                                </td>
+                                <td style="padding: 15px;">
+                                    {% if order.status == 'pending' %}
+                                        <span class="status-badge status-warn">In wacht</span>
+                                    {% elif order.status == 'ready' %}
+                                        <span class="status-badge status-ok">Staat klaar</span>
+                                    {% else %}
+                                        <span class="status-badge" style="background:#eee;">{{ order.status }}</span>
+                                    {% endif %}
+                                </td>
+                                <td style="padding: 15px;">
+                                    <div style="display: flex; gap: 5px; flex-wrap: wrap;">
+                                        {% if order.status == 'pending' %}
+                                            <form action="{{ url_for('main.update_order_status', order_id=order.id) }}" method="POST">
+                                                <input type="hidden" name="status" value="ready">
+                                                <button type="submit" class="btn-status-action btn-ready">📦 Zet Klaar</button>
+                                            </form>
+                                        {% elif order.status == 'ready' %}
+                                            <form action="{{ url_for('main.update_order_status', order_id=order.id) }}" method="POST">
+                                                <input type="hidden" name="status" value="picked_up">
+                                                <button type="submit" class="btn-status-action btn-finish">✅ Afronden</button>
+                                            </form>
+                                        {% endif %}
+                                        </div>
+                                </td>
+                            </tr>
                         {% endfor %}
                     </tbody>
                 </table>
@@ -47,10 +102,9 @@
         {% endif %}
     </div>
 
-    <div style="margin-bottom: 50px;" id="future-section">
+    <div style="margin-bottom: 50px;">
         <h3 style="color: #2E7D32; margin-bottom: 15px;">Toekomstige orders</h3>
-        
-        <div class="cart-container" style="padding: 0; overflow: hidden; border-top: 4px solid #2E7D32;">
+        <div class="cart-container table-responsive" style="padding: 0; border-top: 4px solid #2E7D32;">
             <table style="width: 100%; border-collapse: collapse;">
                 <thead>
                     <tr style="border-bottom: 2px solid #eee; text-align: left; color: #593C28;">
@@ -58,95 +112,45 @@
                         <th style="padding: 15px;">Klant</th>
                         <th style="padding: 15px;">Bestelling</th>
                         <th style="padding: 15px;">Status</th>
-                        <th style="padding: 15px;">Actie</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for order in pagination_future.items %}
-                        {% include 'partials/order_row.html' %}
+                        <tr style="border-bottom: 1px solid #eee;">
+                            <td style="padding: 15px;">{{ order.pickup_date.strftime('%d-%m-%Y') }}</td>
+                            <td style="padding: 15px;">{{ order.profile.full_name }}</td>
+                            <td style="padding: 15px;">{{ order.items|length }} items</td>
+                            <td style="padding: 15px;"><span class="status-badge status-warn">Toekomst</span></td>
+                        </tr>
                     {% else %}
-                        <tr><td colspan="5" style="padding: 20px; text-align: center; color: #666;">Geen toekomstige bestellingen.</td></tr>
+                        <tr><td colspan="4" style="padding: 20px; text-align: center;">Geen orders.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
-
-        {% if pagination_future.pages > 1 %}
-        <div style="display: flex; justify-content: center; align-items: center; gap: 5px; margin-top: 15px;">
-            {% if pagination_future.has_prev %}
-                <a href="{{ url_for('main.admin_orders', page_future=pagination_future.prev_num, page_history=pagination_history.page, _anchor='future-section') }}" 
-                   class="btn-admin-nav" style="padding: 5px 10px;">&larr;</a>
-            {% endif %}
-
-            {% for page_num in pagination_future.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
-                {% if page_num %}
-                    {% if pagination_future.page == page_num %}
-                        <span class="btn-admin-nav" style="background-color: #593C28; color: white; border-color: #593C28; cursor: default; padding: 5px 10px;">{{ page_num }}</span>
-                    {% else %}
-                        <a href="{{ url_for('main.admin_orders', page_future=page_num, page_history=pagination_history.page, _anchor='future-section') }}" 
-                           class="btn-admin-nav" style="background-color: white; color: #593C28; padding: 5px 10px;">{{ page_num }}</a>
-                    {% endif %}
-                {% else %}
-                    <span style="color: #999;">...</span>
-                {% endif %}
-            {% endfor %}
-            
-            {% if pagination_future.has_next %}
-                <a href="{{ url_for('main.admin_orders', page_future=pagination_future.next_num, page_history=pagination_history.page, _anchor='future-section') }}" 
-                   class="btn-admin-nav" style="padding: 5px 10px;">&rarr;</a>
-            {% endif %}
-        </div>
-        {% endif %}
-    </div>
-
-    <div id="history-section">
-        <h3 style="color: #666; margin-bottom: 15px;">Orders verleden</h3>
-        <div class="cart-container" style="padding: 0; overflow: hidden; opacity: 0.9;">
-            <table style="width: 100%; border-collapse: collapse;">
-                <thead>
-                    <tr style="border-bottom: 2px solid #eee; text-align: left; color: #666; background-color: #f9f9f9;">
-                        <th style="padding: 15px;">Datum</th>
-                        <th style="padding: 15px;">Klant</th>
-                        <th style="padding: 15px;">Bestelling</th>
-                        <th style="padding: 15px;">Status</th>
-                        <th style="padding: 15px;">Actie</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for order in pagination_history.items %}
-                        {% include 'partials/order_row.html' %}
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-
-        {% if pagination_history.pages > 1 %}
-        <div style="display: flex; justify-content: center; align-items: center; gap: 5px; margin-top: 20px;">
-            {% if pagination_history.has_prev %}
-                <a href="{{ url_for('main.admin_orders', page_history=pagination_history.prev_num, page_future=pagination_future.page, _anchor='history-section') }}" 
-                   class="btn-admin-nav" style="padding: 5px 10px;">&larr; Vorige</a>
-            {% endif %}
-            
-            {% for page_num in pagination_history.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
-                {% if page_num %}
-                    {% if pagination_history.page == page_num %}
-                        <span class="btn-admin-nav" style="background-color: #593C28; color: white; border-color: #593C28; cursor: default; padding: 5px 10px;">{{ page_num }}</span>
-                    {% else %}
-                        <a href="{{ url_for('main.admin_orders', page_history=page_num, page_future=pagination_future.page, _anchor='history-section') }}" 
-                           class="btn-admin-nav" style="background-color: white; color: #593C28; padding: 5px 10px;">{{ page_num }}</a>
-                    {% endif %}
-                {% else %}
-                    <span style="color: #999;">...</span>
-                {% endif %}
-            {% endfor %}
-            
-            {% if pagination_history.has_next %}
-                <a href="{{ url_for('main.admin_orders', page_history=pagination_history.next_num, page_future=pagination_future.page, _anchor='history-section') }}" 
-                   class="btn-admin-nav" style="padding: 5px 10px;">Volgende &rarr;</a>
-            {% endif %}
-        </div>
-        {% endif %}
     </div>
 
 </div>
+
+<script>
+    function filterOrders(status, btn) {
+        // 1. Knoppen styling resetten
+        document.querySelectorAll('.filter-action-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        // 2. Rijen filteren
+        const rows = document.querySelectorAll('.order-row');
+        rows.forEach(row => {
+            if (status === 'all') {
+                row.style.display = '';
+            } else {
+                if (row.classList.contains('status-' + status)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            }
+        });
+    }
+</script>
 {% endblock %}

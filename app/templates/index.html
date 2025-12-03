@@ -10,9 +10,7 @@
                     {{ settings.welcome_text }}
                 </span>
             </h1>
-            
             <p>{{ settings.intro_text }}</p>
-            
             <div class="alert-box">
                 <span class="alert-icon">!</span>
                 <p><strong>bestel voor {{ settings.deadline_hour }}u00</strong> om je bestelling vanaf morgen op te halen</p>
@@ -25,29 +23,22 @@
 </section>
 
 <section class="container filter-section">
-    <h2>Welk brood zoek je ?</h2>
+    <h2>Welk brood zoek je?</h2>
     <div class="filter-buttons">
         <a href="{{ url_for('main.index') }}" 
-           class="filter-btn {{ 'active' if not current_category or current_category == 'alles' else '' }}"
-           style="text-decoration: none;">
+           class="filter-btn {{ 'active' if not current_category or current_category == 'alles' else '' }}">
            alles
         </a>
-        
         <a href="{{ url_for('main.index', category='brood') }}" 
-           class="filter-btn {{ 'active' if current_category == 'brood' else '' }}"
-           style="text-decoration: none;">
+           class="filter-btn {{ 'active' if current_category == 'brood' else '' }}">
            brood
         </a>
-        
         <a href="{{ url_for('main.index', category='pistoles') }}" 
-           class="filter-btn {{ 'active' if current_category == 'pistoles' else '' }}"
-           style="text-decoration: none;">
+           class="filter-btn {{ 'active' if current_category == 'pistoles' else '' }}">
            pistolets
         </a>
-        
         <a href="{{ url_for('main.index', category='koffiekoeken') }}" 
-           class="filter-btn {{ 'active' if current_category == 'koffiekoeken' else '' }}"
-           style="text-decoration: none;">
+           class="filter-btn {{ 'active' if current_category == 'koffiekoeken' else '' }}">
            koffiekoeken
         </a>
     </div>
@@ -58,13 +49,11 @@
         {% for product in products %}
             <article class="product-card">
                 <div class="product-image">
-                    <img src="{{ url_for('static', filename='img/' + product.image_url) }}" alt="{{ product.name }}">
+                    <img src="{{ product.image_url | product_img }}" alt="{{ product.name }}">
                 </div>
                 <div class="product-info">
                     <h3>{{ product.name }}</h3>
-                    
                     <p class="product-description">{{ product.description }}</p>
-                    
                     <span class="product-price">&euro; {{ product.price }}</span>
 
                     <div class="product-allergen-wrapper">
@@ -78,17 +67,11 @@
                     <form action="{{ url_for('main.add_to_cart', product_id=product.id) }}" method="POST" class="bestel-form">
                         <div class="bestel-groep">
                             <div class="quantity-selector">
-                                <button type="button" class="quantity-btn minus" aria-label="Verlaag aantal">-</button>
-                                <input 
-                                    type="number" 
-                                    name="quantity" 
-                                    value="1" 
-                                    min="1"
-                                    class="quantity-input"
-                                    aria-label="Aantal">
-                                 <button type="button" class="quantity-btn plus" aria-label="Verhoog aantal">+</button>
+                                <button type="button" class="quantity-btn minus">-</button>
+                                <input type="number" name="quantity" value="1" min="1" class="quantity-input">
+                                 <button type="button" class="quantity-btn plus">+</button>
                             </div>
-                            <button type="submit" class="btn-bestel">Bestel</button>
+                            <button type="submit" class="btn-bestel" style="background-color: #593C28; color: white; border: none; padding: 0 20px; border-radius: 6px; cursor: pointer; font-weight: bold; flex-grow: 1;">Bestel</button>
                         </div>
                     </form>
                 </div>

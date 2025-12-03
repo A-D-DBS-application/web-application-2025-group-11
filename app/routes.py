@@ -2,11 +2,12 @@ import os
 import time
 import pandas as pd
 import json
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, make_response
 from decimal import Decimal
 from datetime import datetime, timedelta, date
 from werkzeug.utils import secure_filename
 from sqlalchemy import text
+from icalendar import Calendar, Event
 
 # Importeer je modellen en database
 from .models import Product, Profile, Order, OrderItem, Ingredient, ProductIngredient, AppSettings, db
@@ -21,16 +22,12 @@ from .analytics import generate_smart_forecast
 
 main = Blueprint('main', __name__)
 
-# Pad naar de afbeeldingen map
-UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'img')
-
 # --- HULPFUNCTIES ---
 
 def get_settings():
     """Haalt de instellingen op. Maakt ze aan als ze niet bestaan."""
     settings = AppSettings.query.first()
     if not settings:
-        # Maak standaard settings als de tabel leeg is
         settings = AppSettings(
             id=1,
             welcome_title="Welkom bij Bakkerij Oewist",
@@ -47,16 +44,79 @@ def check_admin():
     user = Profile.query.get(session['user_id'])
     return user and user.is_admin
 
+def upload_image_to_supabase(file):
+    """
+    Slide 11: Upload afbeelding naar Supabase Storage Bucket i.p.v. lokaal.
+    """
+    if not file: return None
+    try:
+        filename = secure_filename(file.filename)
+        # Unieke naam maken
+        file_path = f"{int(time.time())}_{filename}"
+        file_content = file.read()
+        
+        # Uploaden naar bucket 'product-images'
+        bucket_name = "product-images"
+        res = supabase.storage.from_(bucket_name).upload(
+            path=file_path, 
+            file=file_content, 
+            file_options={"content-type": file.mimetype}
+        )
+        
+        # Publieke URL ophalen
+        public_url_response = supabase.storage.from_(bucket_name).get_public_url(file_path)
+        
+        # Check even of de respons een string is of een object (hangt van versie af)
+        # Meestal is het direct de string, of zit het in een dict.
+        # Voor de zekerheid:
+        return public_url_response 
+        
+    except Exception as e:
+        print(f"❌ Upload Error: {e}")
+        return None
+
+# --- TEMPLATE FILTERS (NIEUW) ---
+@main.app_template_filter('product_img')
+def product_img_filter(image_url):
+    """
+    Zorgt ervoor dat templates zowel oude lokale plaatjes als nieuwe Supabase URL's snappen.
+    Gebruik in HTML: {{ product.image_url | product_img }}
+    """
+    if not image_url: 
+        return url_for('static', filename='img/logo.png')
+    
+    # Als het een volledige URL is (van Supabase), gebruik die direct
+    if image_url.startswith('http'):
+        return image_url
+        
+    # Anders is het een oud lokaal bestand
+    return url_for('static', filename='img/' + image_url)
+
+
+# --- CONTEXT PROCESSOR ---
 @main.context_processor
-def inject_globals():
-    """Zorgt dat user én settings op ELKE pagina beschikbaar zijn."""
+def inject_global_vars():
+    # 1. Winkelwagen teller
+    cart_count = 0
+    if 'cart' in session:
+        cart_count = sum(session['cart'].values())
+    
+    # 2. Huidige gebruiker
     user_profile = None
     if 'user_id' in session:
         user_profile = Profile.query.get(session['user_id'])
+
+    # 3. Settings
+    settings = get_settings()
     
+    # 4. Huidig jaar
+    current_year = datetime.now().year
+
     return dict(
+        cart_item_count=cart_count,
         current_user=user_profile,
-        settings=get_settings()
+        settings=settings,
+        current_year=current_year
     )
 
 
@@ -92,6 +152,38 @@ def my_orders():
                             .paginate(page=page, per_page=10, error_out=False)
     return render_template('my_orders.html', pagination=pagination)
 
+# --- ICAL DOWNLOAD ---
+@main.route('/order/<int:order_id>/ical')
+def download_ical(order_id):
+    order = Order.query.get_or_404(order_id)
+    
+    cal = Calendar()
+    cal.add('prodid', '-//Bakkerij Oewist//mxm.dk//')
+    cal.add('version', '2.0')
+
+    event = Event()
+    event.add('summary', f'Ophalen bestelling #{order.id} - Bakkerij Oewist')
+    
+    if order.pickup_date:
+        start_time = datetime.combine(order.pickup_date, datetime.min.time()) + timedelta(hours=10)
+    else:
+        start_time = datetime.now() + timedelta(days=1)
+
+    end_time = start_time + timedelta(minutes=30)
+    
+    event.add('dtstart', start_time)
+    event.add('dtend', end_time)
+    event.add('description', 'Je verse broodjes staan klaar! Vergeet ze niet op te halen.')
+    event.add('location', 'Bakkerij Oewist')
+
+    cal.add_component(event)
+
+    response = make_response(cal.to_ical())
+    response.headers["Content-Disposition"] = f"attachment; filename=order_{order_id}.ics"
+    response.headers["Content-Type"] = "text/calendar"
+    
+    return response
+
 # ==============================================================================
 #  2. AUTHENTICATIE
 # ==============================================================================
@@ -108,7 +200,6 @@ def login():
             session['access_token'] = response.session.access_token
             session['user_email'] = response.user.email
             
-            # Check of admin (voor redirect gemak)
             user = Profile.query.get(response.user.id)
             if user and user.is_admin:
                 return redirect(url_for('main.admin_orders'))
@@ -131,7 +222,6 @@ def register():
             })
             if auth_response.user and auth_response.user.id:
                 user_id = auth_response.user.id
-                # Standaard is_admin = False
                 new_profile = Profile(id=user_id, full_name=full_name, is_admin=False)
                 db.session.add(new_profile)
                 db.session.commit()
@@ -167,7 +257,6 @@ def view_cart():
             total_cart_price += total_for_product
             products_in_cart.append({'product': product, 'quantity': quantity, 'total_price': total_for_product})
     
-    # DYNAMISCHE DEADLINE (Uit settings!)
     settings = get_settings()
     deadline = settings.deadline_hour if settings.deadline_hour else 17
     
@@ -178,14 +267,12 @@ def view_cart():
     
     min_date_str = min_datum_obj.strftime('%Y-%m-%d')
 
-    # --- OPENINGSUREN CHECK ---
     closed_days = [] 
     if settings.weekly_schedule_json:
         try:
             schedule = json.loads(settings.weekly_schedule_json)
             for i in range(7):
                 if schedule.get(str(i), {}).get('closed'):
-                    # Python 0=Ma, JS 0=Zo. Conversie:
                     js_day = i + 1 if i < 6 else 0
                     closed_days.append(js_day)
         except: pass
@@ -242,11 +329,6 @@ def checkout():
     
     try:
         pickup_date_obj = datetime.strptime(pickup_date_str, '%Y-%m-%d').date()
-        
-        # --- LOGICA SPRINT 1 PUNT 4: VOORRAAD CHECK ---
-        # Als bestelling > 3 dagen in toekomst is -> GEEN voorraad check (bakker kan inkopen)
-        # Als bestelling <= 3 dagen is -> WEL voorraad check
-        
         days_until_pickup = (pickup_date_obj - date.today()).days
         should_check_stock = days_until_pickup <= 3
         
@@ -254,7 +336,6 @@ def checkout():
         products = Product.query.filter(Product.id.in_(product_ids)).all()
         products_map = {str(p.id): p for p in products} 
         
-        # Bereken benodigde ingrediënten
         ingredients_needed = {}
         for pid, qty in cart_dict.items():
             prod = products_map[pid]
@@ -265,14 +346,12 @@ def checkout():
                 else:
                     ingredients_needed[rule.ingredient.id] = {'obj': rule.ingredient, 'amount': needed}
         
-        # Voer de check ALLEEN uit als het kort dag is
         if should_check_stock:
             for ing_id, data in ingredients_needed.items():
                 if data['obj'].stock_quantity < data['amount']:
                     flash(f"Te weinig voorraad voor {data['obj'].name}. Kies een latere datum (>3 dagen) of neem een ander product.", 'danger')
                     return redirect(url_for('main.view_cart'))
         
-        # --- ORDER AANMAKEN ---
         total_price = sum(products_map[pid].price * Decimal(qty) for pid, qty in cart_dict.items())
         new_order = Order(
             user_id=session['user_id'], 
@@ -284,12 +363,9 @@ def checkout():
         db.session.add(new_order)
         db.session.flush()
         
-        # Items toevoegen
         for pid, qty in cart_dict.items():
             db.session.add(OrderItem(order_id=new_order.id, product_id=pid, quantity=qty, unit_price_at_order=products_map[pid].price))
         
-        # Voorraad afboeken (DIT GEBEURT ALTIJD, ook als voorraad negatief wordt)
-        # Hierdoor ziet de admin in 'Inventory' dat hij in de min staat en moet bijbestellen.
         for ing_id, data in ingredients_needed.items():
             data['obj'].stock_quantity -= data['amount']
             db.session.add(data['obj'])
@@ -297,22 +373,17 @@ def checkout():
         db.session.commit()
         session.pop('cart', None)
         
-        if not should_check_stock:
-            flash('Bestelling succesvol geplaatst!', 'success')
-        else:
-            flash('Bestelling succesvol geplaatst!', 'success')
-            
+        flash('Bestelling succesvol geplaatst!', 'success')
         return redirect(url_for('main.index'))
         
     except Exception as e:
         db.session.rollback()
-        print(e)
         flash('Er ging iets mis met de bestelling.', 'danger')
         return redirect(url_for('main.view_cart'))
 
 
 # ==============================================================================
-#  4. ADMIN: SETTINGS (NIEUW)
+#  4. ADMIN: SETTINGS
 # ==============================================================================
 
 @main.route('/admin/settings')
@@ -322,7 +393,6 @@ def admin_settings():
     admins = Profile.query.filter_by(is_admin=True).all()
     users = Profile.query.filter_by(is_admin=False).all()
     
-    # Load schedule
     settings = get_settings()
     try:
         schedule = json.loads(settings.weekly_schedule_json)
@@ -349,7 +419,6 @@ def update_settings():
     s.email_address = request.form.get('email_address')
     s.address_text = request.form.get('address_text')
     
-    # Openingsuren JSON bouwen
     new_schedule = {}
     formatted_text = []
     short_names = ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo']
@@ -358,12 +427,11 @@ def update_settings():
         is_closed = request.form.get(f'day_{i}_closed') == 'on'
         text_hours = request.form.get(f'day_{i}_text')
         new_schedule[str(i)] = {'closed': is_closed, 'text': text_hours}
-        
         status = "GESLOTEN" if is_closed else text_hours
         formatted_text.append(f"{short_names[i]}: {status}")
 
     s.weekly_schedule_json = json.dumps(new_schedule)
-    s.opening_hours = "\n".join(formatted_text) # Fallback tekst
+    s.opening_hours = "\n".join(formatted_text)
     
     db.session.commit()
     flash('Instellingen opgeslagen.', 'success')
@@ -375,7 +443,6 @@ def toggle_admin():
     
     user_id = request.form.get('user_id')
     action = request.form.get('action')
-    
     user = Profile.query.get(user_id)
     if user:
         if action == 'add':
@@ -430,23 +497,18 @@ def admin_orders():
     if not check_admin(): return redirect(url_for('main.index'))
     
     today = date.today()
-    
-    # 1. Haal paginanummers op uit de URL (standaard 1)
     page_future = request.args.get('page_future', 1, type=int)
     page_history = request.args.get('page_history', 1, type=int)
     
-    # 2. VANDAAG (Alles tonen, geen limiet, dit is prioriteit)
     orders_today = Order.query.filter(
         Order.pickup_date == today, 
         Order.status.notin_(['picked_up', 'cancelled'])
     ).all()
     
-    # 3. TOEKOMST (Met Paginering!)
     pagination_future = Order.query.filter(
         Order.pickup_date > today
     ).order_by(Order.pickup_date.asc()).paginate(page=page_future, per_page=15, error_out=False)
     
-    # 4. HISTORIE (Met Paginering!)
     pagination_history = Order.query.filter(
         (Order.pickup_date < today) | 
         ((Order.pickup_date == today) & (Order.status.in_(['picked_up', 'cancelled'])))
@@ -454,8 +516,8 @@ def admin_orders():
     
     return render_template('admin_orders.html', 
                            orders_today=orders_today, 
-                           pagination_future=pagination_future,   # <--- Nieuw object
-                           pagination_history=pagination_history) # <--- Hernoemd voor duidelijkheid
+                           pagination_future=pagination_future,
+                           pagination_history=pagination_history)
 
 @main.route('/admin/order/update/<int:order_id>', methods=['POST'])
 def update_order_status(order_id):
@@ -475,14 +537,23 @@ def update_order_status(order_id):
 def admin_products():
     if not check_admin(): return redirect(url_for('main.index'))
     products = Product.query.order_by(Product.category, Product.name).all()
-    return render_template('admin_products.html', products=products)
+    
+    categories_list = ["brood", "pistoles", "koffiekoeken", "taart", "seizoensgebak"] 
+    return render_template('admin_products.html', products=products, categories=categories_list)
 
 @main.route('/admin/product/add', methods=['POST'])
 def add_product_manual():
     if not check_admin(): return redirect(url_for('main.index'))
     try:
-        img_name = 'logo.png'
+        # PUNT 11: Upload naar Supabase
         file = request.files.get('image_file')
+        
+        # Standaard of geüpload
+        image_url = 'logo.png' # Fallback
+        if file and file.filename != '':
+            uploaded_url = upload_image_to_supabase(file)
+            if uploaded_url:
+                image_url = uploaded_url
         
         new_prod = Product(
             name=request.form.get('name'), 
@@ -490,25 +561,16 @@ def add_product_manual():
             price=Decimal(request.form.get('price')), 
             category=request.form.get('category'),
             allergens=request.form.get('allergens'),
-            image_url=img_name
+            image_url=image_url
         )
         db.session.add(new_prod)
-        db.session.flush()
-        
-        if file and file.filename != '':
-            fname = secure_filename(file.filename)
-            unique = f"product_{new_prod.id}_{int(time.time())}_{fname}"
-            file.save(os.path.join(UPLOAD_FOLDER, unique))
-            new_prod.image_url = unique
-            
         db.session.commit()
-        flash('Product toegevoegd.', 'success')
+        flash('Product toegevoegd (met afbeelding)!', 'success')
     except Exception as e:
         db.session.rollback()
         flash(f'Fout: {e}', 'danger')
     return redirect(url_for('main.admin_products'))
 
-# --- Updates ---
 @main.route('/admin/product/update_price', methods=['POST'])
 def update_product_price():
     if not check_admin(): return redirect(url_for('main.index'))
@@ -559,13 +621,15 @@ def upload_product_image():
     try:
         p = Product.query.get(request.form.get('product_id'))
         file = request.files.get('image_file')
-        if file:
-            fname = secure_filename(file.filename)
-            unique = f"product_{p.id}_{int(time.time())}_{fname}"
-            file.save(os.path.join(UPLOAD_FOLDER, unique))
-            p.image_url = unique
-            db.session.commit()
-            flash('Foto gewijzigd.', 'success')
+        if file and file.filename != '':
+            # PUNT 11: Gebruik helper functie
+            uploaded_url = upload_image_to_supabase(file)
+            if uploaded_url:
+                p.image_url = uploaded_url
+                db.session.commit()
+                flash('Foto gewijzigd (Supabase).', 'success')
+            else:
+                flash('Fout bij uploaden naar Supabase.', 'danger')
     except: flash('Fout bij uploaden.', 'danger')
     return redirect(url_for('main.admin_products'))
 
@@ -601,7 +665,6 @@ def delete_product(product_id):
     except: flash('Kan niet verwijderen (nog in orders?).', 'danger')
     return redirect(url_for('main.admin_products'))
 
-# --- Recepten ---
 @main.route('/admin/product/<int:product_id>/recipe')
 def manage_recipe(product_id):
     if not check_admin(): return redirect(url_for('main.index'))

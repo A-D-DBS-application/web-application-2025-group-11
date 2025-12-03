@@ -8,13 +8,12 @@
             <h1>Instellingen</h1>
             <p>Beheer algemene gegevens en beheerders.</p>
         </div>
-        
         <div style="display: flex; gap: 8px;">
             <a href="{{ url_for('main.admin_inventory') }}" class="btn-admin-nav">Voorraad</a>
             <a href="{{ url_for('main.admin_products') }}" class="btn-admin-nav">Producten</a>
             <a href="{{ url_for('main.admin_orders') }}" class="btn-admin-nav">Orders</a>
             <a href="{{ url_for('main.admin_forecast') }}" class="btn-admin-nav">Forecast</a>
-            <a href="{{ url_for('main.admin_settings') }}" class="btn-admin-nav" style="background-color: white; color: #593C28; border: 2px solid #eee;">Settings</a>
+            <a href="{{ url_for('main.admin_settings') }}" class="btn-admin-nav" style="background: white; color: #593C28; border: 2px solid #eee;">Settings</a>
         </div>
     </div>
 
@@ -26,108 +25,82 @@
                 
                 <form action="{{ url_for('main.update_settings') }}" method="POST">
                     
-                    <div style="margin-bottom: 15px;">
-                        <label style="font-weight: bold;">Titel op Homepage</label>
-                        <input type="text" name="welcome_title" value="{{ settings.welcome_title }}" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+                    <div class="form-group">
+                        <label class="form-label">Titel op Homepage</label>
+                        <input type="text" name="welcome_title" value="{{ settings.welcome_title }}" class="form-input">
                     </div>
                     
-                    <div style="margin-bottom: 15px;">
-                        <label style="font-weight: bold;">Welkomsttekst (Kort)</label>
-                        <textarea name="welcome_text" rows="3" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">{{ settings.welcome_text }}</textarea>
+                    <div class="form-group">
+                        <label class="form-label">Welkomsttekst (Kort)</label>
+                        <textarea name="welcome_text" rows="3" class="form-input">{{ settings.welcome_text }}</textarea>
                     </div>
 
-                    <div style="margin-bottom: 15px;">
-                        <label style="font-weight: bold;">Introductie Paragraaf (Lang)</label>
-                        <textarea name="intro_text" rows="6" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">{{ settings.intro_text }}</textarea>
+                    <div class="form-group">
+                        <label class="form-label">Introductie Paragraaf</label>
+                        <textarea name="intro_text" rows="6" class="form-input">{{ settings.intro_text }}</textarea>
                     </div>
 
-                    <div style="margin-bottom: 15px;">
-                        <label style="font-weight: bold;">Deadline Bestellen (Uur)</label>
-                        <input type="number" name="deadline_hour" value="{{ settings.deadline_hour }}" min="0" max="23" style="width: 80px; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
-                        <small style="color: #666;">uur (bv. 17 voor 17:00)</small>
+                    <div class="form-group">
+                        <label class="form-label">Deadline Bestellen (Uur)</label>
+                        <input type="number" name="deadline_hour" value="{{ settings.deadline_hour }}" min="0" max="23" class="form-input" style="width: 80px;">
+                        <small style="color: #666;">Uur (bv. 17 voor 17:00)</small>
                     </div>
 
-                    <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
+                    <hr class="separator">
 
-                    <h4 style="margin-bottom: 10px; color: #593C28;">Contactgegevens</h4>
+                    <h4 class="section-title">Contactgegevens</h4>
 
                     <div style="display: flex; gap: 15px;">
                         <div style="flex: 1;">
-                            <label style="font-weight: bold;">Email</label>
-                            <input type="text" name="email_address" value="{{ settings.email_address }}" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+                            <label class="form-label">Email</label>
+                            <input type="text" name="email_address" value="{{ settings.email_address }}" class="form-input">
                         </div>
                         <div style="flex: 1;">
-                            <label style="font-weight: bold;">Telefoon</label>
-                            <input type="text" name="phone_number" value="{{ settings.phone_number }}" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+                            <label class="form-label">Telefoon</label>
+                            <input type="text" name="phone_number" value="{{ settings.phone_number }}" class="form-input">
                         </div>
                     </div>
 
-                    <div style="margin-top: 15px;">
-                        <label style="font-weight: bold;">Adres</label>
-                        <input type="text" name="address_text" value="{{ settings.address_text }}" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+                    <div class="form-group" style="margin-top: 15px;">
+                        <label class="form-label">Adres</label>
+                        <input type="text" name="address_text" value="{{ settings.address_text }}" class="form-input">
                     </div>
 
-                    <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
+                    <hr class="separator">
 
-                    <h4 style="margin-bottom: 15px; color: #593C28;">🕒 Openingsuren & Sluitingsdagen</h4>
+                    <h4 class="section-title">🕒 Openingsuren</h4>
                     <p style="font-size: 0.9em; color: #666; margin-bottom: 10px;">
                         Vink aan als de winkel dicht is.
                     </p>
 
-                    <div style="background: #f9f9f9; padding: 15px; border-radius: 8px; border: 1px solid #eee;">
+                    <div class="schedule-container">
                         {% for i in range(7) %}
-                            
-                            {% set dag_naam = days_names[i] %}
                             {% set is_gesloten = schedule[i|string]['closed'] %}
                             {% set uren_tekst = schedule[i|string]['text'] %}
                             
-                            {% set check_id = 'closed_' ~ i %}
-                            {% set check_name = 'day_' ~ i ~ '_closed' %}
-                            {% set text_id = 'text_' ~ i %}
-                            {% set text_name = 'day_' ~ i ~ '_text' %}
-                            {% set js_call = 'toggleInput(' ~ i ~ ')' %}
-
-                            <div style="display: flex; align-items: center; margin-bottom: 10px; gap: 10px;">
+                            <div class="schedule-row">
+                                <div class="day-label">{{ days_names[i] }}</div>
                                 
-                                <div style="width: 100px; font-weight: bold; color: #593C28;">{{ dag_naam }}</div>
-                                
-                                <div style="display: flex; align-items: center; gap: 5px; margin-right: 10px;">
-                                    {% if is_gesloten %}
-                                        <input type="checkbox" id="{{ check_id }}" name="{{ check_name }}" checked onchange="{{ js_call }}">
-                                    {% else %}
-                                        <input type="checkbox" id="{{ check_id }}" name="{{ check_name }}" onchange="{{ js_call }}">
-                                    {% endif %}
-                                    <label for="{{ check_id }}" style="font-size: 0.9em;">Dicht</label>
+                                <div class="checkbox-wrapper">
+                                    <input type="checkbox" 
+                                           id="closed_{{ i }}" 
+                                           name="day_{{ i }}_closed" 
+                                           data-index="{{ i }}"
+                                           onchange="toggleInput(this)"
+                                           {% if is_gesloten %}checked{% endif %}>
+                                    <label for="closed_{{ i }}">Dicht</label>
                                 </div>
 
-                                {% if is_gesloten %}
-                                    <input type="text" id="{{ text_id }}" name="{{ text_name }}" value="{{ uren_tekst }}" 
-                                           style="flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px; background-color: #eee; color: #aaa;">
-                                {% else %}
-                                    <input type="text" id="{{ text_id }}" name="{{ text_name }}" value="{{ uren_tekst }}" placeholder="bv. 08:00 - 18:00"
-                                           style="flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
-                                {% endif %}
-
+                                <input type="text" 
+                                       id="text_{{ i }}" 
+                                       name="day_{{ i }}_text" 
+                                       value="{{ uren_tekst }}" 
+                                       class="form-input schedule-input {% if is_gesloten %}disabled{% endif %}">
                             </div>
                         {% endfor %}
                     </div>
 
-                    <script>
-                        function toggleInput(dayIndex) {
-                            var checkbox = document.getElementById('closed_' + dayIndex);
-                            var input = document.getElementById('text_' + dayIndex);
-                            
-                            if (checkbox.checked) {
-                                input.style.backgroundColor = '#eee';
-                                input.style.color = '#aaa';
-                            } else {
-                                input.style.backgroundColor = '#fff';
-                                input.style.color = '#333';
-                            }
-                        }
-                    </script>
-
-                    <button type="submit" class="btn-bestel" style="margin-top: 20px;">Opslaan</button>
+                    <button type="submit" class="btn-bestel" style="margin-top: 20px; width: 100%;">Opslaan</button>
                 </form>
             </div>
         </div>
@@ -150,13 +123,13 @@
                     {% endfor %}
                 </ul>
 
-                <hr style="margin: 20px 0; border: 0; border-top: 1px solid #ccc;">
+                <hr class="separator">
 
                 <p style="margin-bottom: 10px;"><strong>Nieuwe Admin Toevoegen:</strong></p>
                 <form action="{{ url_for('main.toggle_admin') }}" method="POST">
                     <input type="hidden" name="action" value="add">
                     <div style="margin-bottom: 10px;">
-                        <select name="user_id" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+                        <select name="user_id" class="form-input">
                             <option value="" disabled selected>Kies een gebruiker...</option>
                             {% for user in users %}
                                 <option value="{{ user.id }}">{{ user.full_name }}</option>
@@ -170,4 +143,19 @@
 
     </div>
 </div>
+
+<script>
+    function toggleInput(el) {
+        // We halen de index op via het data-attribuut (VS Code friendly)
+        var dayIndex = el.dataset.index;
+        var input = document.getElementById('text_' + dayIndex);
+        
+        if (el.checked) {
+            input.classList.add('disabled');
+            // Optioneel: reset waarde of maak grijs
+        } else {
+            input.classList.remove('disabled');
+        }
+    }
+</script>
 {% endblock %}

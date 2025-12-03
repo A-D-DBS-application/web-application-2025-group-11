@@ -15,22 +15,21 @@
                         geplaatst op {{ order.created_at.strftime('%d-%m-%Y') }}
                     </span>
                 </div>
-                
-                <span>
+                <div>
                     {% if order.status == 'pending' %}
-                        <span style="background:#FFF3E0; color: #F57C00; padding: 5px 12px; border-radius: 15px; font-size: 0.8em; font-weight: bold;">In verwerking</span>
+                        <span class="status-badge status-warn">In verwerking</span>
                     {% elif order.status == 'ready' %}
-                        <span style="background:#E8F5E9; color: #2E7D32; padding: 5px 12px; border-radius: 15px; font-size: 0.8em; font-weight: bold;">Staat klaar</span>
+                        <span class="status-badge status-ok">Staat klaar</span>
                     {% elif order.status == 'picked_up' %}
-                        <span style="background:#4CAF50; color: white; padding: 5px 12px; border-radius: 15px; font-size: 0.8em;">Opgehaald</span>
+                        <span class="status-badge" style="background:#4CAF50; color: white;">Opgehaald</span>
                     {% elif order.status == 'cancelled' %}
-                        <span style="background:#FFEBEE; color:#C62828; padding: 5px 12px; border-radius: 15px; font-size: 0.8em;">Geannuleerd</span>
+                        <span class="status-badge" style="background:#FFEBEE; color:#C62828;">Geannuleerd</span>
                     {% endif %}
-                </span>
+                </div>
             </div>
 
             <div style="padding: 20px;">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
                     <div>
                         <strong>Ophaaldatum:</strong> 
                         {% if order.pickup_date %}
@@ -40,6 +39,12 @@
                         {% if order.remarks %}
                             <em style="color: #888;">Opmerking: {{ order.remarks }}</em>
                         {% endif %}
+                        
+                        <div style="margin-top: 8px;">
+                            <a href="{{ url_for('main.download_ical', order_id=order.id) }}" style="color: #593C28; font-size: 0.9em; text-decoration: underline; display: flex; align-items: center; gap: 5px;">
+                                📅 Zet in mijn agenda
+                            </a>
+                        </div>
                     </div>
                     <div style="text-align: right; font-size: 1.2em; font-weight: bold; color: #593C28;">
                         Totaal: &euro; {{ order.total_price }}
@@ -60,13 +65,11 @@
 
         <div style="display: flex; justify-content: center; align-items: center; gap: 15px; margin-top: 30px;">
             {% if pagination.has_prev %}
-                <a href="{{ url_for('main.my_orders', page=pagination.prev_num) }}" class="btn-admin-nav" style="background-color: white; color: #593C28; border: 1px solid #ccc;">&larr; Vorige</a>
+                <a href="{{ url_for('main.my_orders', page=pagination.prev_num) }}" class="btn-admin-nav" style="background: white; color: #593C28;">&larr; Vorige</a>
             {% endif %}
-            
             <span style="font-weight: bold; color: #666;">Pagina {{ pagination.page }} van {{ pagination.pages }}</span>
-            
             {% if pagination.has_next %}
-                <a href="{{ url_for('main.my_orders', page=pagination.next_num) }}" class="btn-admin-nav" style="background-color: white; color: #593C28; border: 1px solid #ccc;">Volgende &rarr;</a>
+                <a href="{{ url_for('main.my_orders', page=pagination.next_num) }}" class="btn-admin-nav" style="background: white; color: #593C28;">Volgende &rarr;</a>
             {% endif %}
         </div>
 
@@ -74,7 +77,7 @@
         <div class="empty-cart-container">
             <h3>Je hebt nog geen bestellingen geplaatst.</h3>
             <p>Heb je honger? Neem snel een kijkje in ons assortiment!</p>
-            <a href="{{ url_for('main.index') }}" class="btn-bestel">Naar de winkel</a>
+            <a href="{{ url_for('main.index') }}" class="btn-bestel" style="display: inline-block; background: #593C28; color: white; padding: 10px 20px; border-radius: 6px;">Naar de winkel</a>
         </div>
     {% endif %}
 </div>
