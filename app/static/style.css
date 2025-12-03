@@ -178,9 +178,19 @@ h1, h2, h3, h4 { color: #593C28; }
 /* =========================================
    5. ADMIN & TABLES
    ========================================= */
-.cart-container, .checkout-container {
+.checkout-container {
     background-color: white; padding: 35px; border-radius: 15px;
     box-shadow: 0 5px 20px rgba(0,0,0,0.05); border: 1px solid #eee; margin-bottom: 30px;
+}
+
+.cart-container {
+    background-color: white; 
+    padding: 35px; 
+    border-radius: 15px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.05); 
+    border: 1px solid #eee; 
+    margin-bottom: 30px;
+    overflow: visible; /* BELANGRIJK: Zorgt dat tooltips niet worden afgeknipt */
 }
 
 /* --- UPDATE: Verbeterde Lege Winkelwagen (Punt 1) --- */
@@ -224,7 +234,12 @@ h1, h2, h3, h4 { color: #593C28; }
     height: 24px;
 }
 
-.table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.table-responsive {
+    overflow-x: auto;      /* Horizontaal scrollen mag nog steeds */
+    overflow-y: visible;   /* Verticaal mag alles eruit steken */
+    min-height: 200px;     /* Zorgt voor wat ruimte onderaan als de tabel leeg is */
+    padding-bottom: 50px;  /* Extra ruimte zodat de onderste tooltip niet verdwijnt */
+}
 
 .admin-header-container {
     display: flex; justify-content: space-between; align-items: center;
@@ -325,4 +340,45 @@ h1, h2, h3, h4 { color: #593C28; }
     .quantity-selector { width: 100%; height: 40px; justify-content: space-between; }
     .quantity-btn { width: 50px; }
     .btn-bestel { width: 100%; height: 40px; }
+}
+/* --- TOOLTIP (JS GESTUURD) --- */
+.item-tooltip-wrapper {
+    cursor: help;
+    font-weight: bold;
+    color: #593C28;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.item-tooltip-wrapper:hover {
+    text-decoration: underline;
+}
+
+/* Dit is het zwevende blokje */
+#floating-tooltip {
+    position: fixed; /* Zweeft boven ALLES, negeert tabelranden */
+    z-index: 10000;
+    background-color: #333;
+    color: #fff;
+    padding: 12px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    pointer-events: none; /* Muis klikt er doorheen */
+    display: none; /* Standaard onzichtbaar */
+    max-width: 250px;
+}
+
+.item-list-small {
+    padding-left: 15px;
+    margin: 0;
+    list-style-type: disc;
+}
+
+/* Standaard tabel responsiveness (schoon) */
+.table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
 }

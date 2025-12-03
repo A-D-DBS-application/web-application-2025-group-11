@@ -8,6 +8,7 @@
             <h1>Orderbeheer</h1>
             <p>Overzicht van actieve bestellingen, planning en archief.</p>
         </div>
+        
         <div style="display: flex; gap: 8px;">
             <a href="{{ url_for('main.admin_inventory') }}" class="btn-admin-nav">Voorraad</a>
             <a href="{{ url_for('main.admin_products') }}" class="btn-admin-nav">Producten</a>   
@@ -17,19 +18,25 @@
         </div>
     </div>
 
-    <div style="margin-bottom: 20px;">
-        <h3 style="color: #593C28; margin-bottom: 10px;">🔎 Filter Orders (Vandaag)</h3>
-        <div class="filter-btn-group">
-            <button class="filter-action-btn active" onclick="filterOrders('all', this)">Alles</button>
-            <button class="filter-action-btn" onclick="filterOrders('pending', this)">Nog Te Doen</button>
-            <button class="filter-action-btn" onclick="filterOrders('ready', this)">Staat Klaar</button>
-        </div>
-    </div>
-
     <div style="margin-bottom: 50px;">
-        <h3 style="color: #E63946; border-bottom: 2px solid #E63946; display: inline-block; padding-bottom: 5px; margin-bottom: 15px;">
-            📅 VANDAAG TE DOEN
-        </h3>
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 15px; flex-wrap: wrap; gap: 20px;">
+            <div>
+                <h3 style="color: #E63946; border-bottom: 2px solid #E63946; display: inline-block; padding-bottom: 5px; margin-bottom: 15px;">
+                    📅 VANDAAG TE DOEN
+                </h3>
+                <div class="filter-btn-group">
+                    <button class="filter-action-btn active" onclick="setFilter('all', this)">Alles</button>
+                    <button class="filter-action-btn" onclick="setFilter('pending', this)">Nog Te Doen</button>
+                    <button class="filter-action-btn" onclick="setFilter('ready', this)">Staat Klaar</button>
+                </div>
+            </div>
+            
+            <div style="flex-grow: 1; max-width: 300px;">
+                <label style="font-weight: bold; color: #593C28; font-size: 0.9em;">Snel zoeken (Vandaag):</label>
+                <input type="text" id="searchInput" onkeyup="applyFilters()" placeholder="Typ naam of product..." 
+                       class="form-input" style="border-radius: 20px;">
+            </div>
+        </div>
         
         {% if orders_today %}
             <div class="cart-container table-responsive" style="border: 2px solid #E63946; padding: 0;">
@@ -45,40 +52,34 @@
                     </thead>
                     <tbody id="orders-today-body">
                         {% for order in orders_today %}
-                            <tr class="order-row status-{{ order.status }}" style="border-bottom: 1px solid #f0f0f0;">
+                            <tr class="order-row status-{{ order.status }}" 
+                                data-search="{{ order.profile.full_name|lower }} {{ order.id }} {% for i in order.items %}{{ i.product.name|lower }} {% endfor %}"
+                                style="border-bottom: 1px solid #f0f0f0;">
                                 <td style="padding: 15px; color: #888;">
-                                    {% if order.pickup_date %}
-                                        <div style="font-weight: bold; color: #333;">{{ order.pickup_date.strftime('%d-%m') }}</div>
-                                    {% else %}
-                                        <div style="font-weight: bold; color: #ccc;">?</div>
-                                    {% endif %}
-                                    <small>#{{ order.id }}</small>
+                                    {% if order.pickup_date %}<strong>{{ order.pickup_date.strftime('%d-%m') }}</strong>{% endif %}
+                                    <br><small>#{{ order.id }}</small>
                                 </td>
                                 <td style="padding: 15px;">
                                     <strong>{{ order.profile.full_name }}</strong>
-                                    {% if order.remarks %}
-                                        <br><small style="color: #E63946;">Note: {{ order.remarks }}</small>
-                                    {% endif %}
+                                    {% if order.remarks %}<br><small style="color: #E63946;">Note: {{ order.remarks }}</small>{% endif %}
                                 </td>
+                                
                                 <td style="padding: 15px;">
-                                    <ul style="font-size: 0.85em; padding-left: 15px; list-style-type: disc;">
+                                    <ul style="font-size: 0.85em; padding-left: 15px; margin: 0; list-style-type: disc;">
                                     {% for item in order.items %}
                                         <li>{{ item.quantity }}x {{ item.product.name }}</li>
                                     {% endfor %}
                                     </ul>
-                                    <div style="margin-top: 5px; font-weight: bold;">€ {{ order.total_price }}</div>
+                                    <div style="margin-top: 5px; font-weight: bold; color: #593C28;">€ {{ order.total_price }}</div>
                                 </td>
+
                                 <td style="padding: 15px;">
-                                    {% if order.status == 'pending' %}
-                                        <span class="status-badge status-warn">In wacht</span>
-                                    {% elif order.status == 'ready' %}
-                                        <span class="status-badge status-ok">Staat klaar</span>
-                                    {% else %}
-                                        <span class="status-badge" style="background:#eee;">{{ order.status }}</span>
+                                    {% if order.status == 'pending' %}<span class="status-badge status-warn">In wacht</span>
+                                    {% elif order.status == 'ready' %}<span class="status-badge status-ok">Staat klaar</span>
                                     {% endif %}
                                 </td>
                                 <td style="padding: 15px;">
-                                    <div style="display: flex; gap: 5px; flex-wrap: wrap;">
+                                    <div style="display: flex; gap: 5px;">
                                         {% if order.status == 'pending' %}
                                             <form action="{{ url_for('main.update_order_status', order_id=order.id) }}" method="POST">
                                                 <input type="hidden" name="status" value="ready">
@@ -87,10 +88,10 @@
                                         {% elif order.status == 'ready' %}
                                             <form action="{{ url_for('main.update_order_status', order_id=order.id) }}" method="POST">
                                                 <input type="hidden" name="status" value="picked_up">
-                                                <button type="submit" class="btn-status-action btn-finish">✅ Afronden</button>
+                                                <button type="submit" class="btn-status-action btn-finish">✅</button>
                                             </form>
                                         {% endif %}
-                                        </div>
+                                    </div>
                                 </td>
                             </tr>
                         {% endfor %}
@@ -100,6 +101,55 @@
         {% else %}
             <div class="alert alert-success">🎉 Alles voor vandaag is afgerond.</div>
         {% endif %}
+    </div>
+
+    <div style="background: white; padding: 25px; border-radius: 15px; margin-bottom: 40px; border: 1px solid #eee; box-shadow: 0 5px 15px rgba(0,0,0,0.05);">
+        <h4 style="margin-bottom: 15px; color: #593C28; border-bottom: 1px solid #eee; padding-bottom: 10px;">
+            🔍 Filter Archief & Toekomst
+        </h4>
+        <form method="GET" action="{{ url_for('main.admin_orders') }}" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; align-items: end;">
+            
+            <div>
+                <label class="form-label" style="font-size: 0.85em;">Datum</label>
+                <input type="date" name="filter_date" value="{{ filters.date }}" class="form-input" style="padding: 8px;">
+            </div>
+
+            <div>
+                <label class="form-label" style="font-size: 0.85em;">Klantnaam</label>
+                <input type="text" name="filter_client" value="{{ filters.client }}" placeholder="bv. Jan" class="form-input" style="padding: 8px;">
+            </div>
+
+            <div>
+                <label class="form-label" style="font-size: 0.85em;">Product</label>
+                <input type="text" name="filter_product" value="{{ filters.product }}" placeholder="bv. Brood" class="form-input" style="padding: 8px;">
+            </div>
+
+            <div>
+                <label class="form-label" style="font-size: 0.85em;">Status</label>
+                <select name="filter_status" class="form-input" style="padding: 8px;">
+                    <option value="all">Alle Statussen</option>
+                    <option value="pending" {% if filters.status == 'pending' %}selected{% endif %}>In wacht</option>
+                    <option value="ready" {% if filters.status == 'ready' %}selected{% endif %}>Klaar</option>
+                    <option value="picked_up" {% if filters.status == 'picked_up' %}selected{% endif %}>Opgehaald</option>
+                    <option value="cancelled" {% if filters.status == 'cancelled' %}selected{% endif %}>Geannuleerd</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="form-label" style="font-size: 0.85em;">Min. Prijs (€)</label>
+                <input type="number" name="filter_price_min" value="{{ filters.price_min }}" placeholder="0" class="form-input" style="padding: 8px;">
+            </div>
+
+            <div>
+                <button type="submit" class="btn-bestel" style="width: 100%; height: 38px; font-size: 0.9em;">Filteren</button>
+            </div>
+            
+            {% if filters.date or filters.client or filters.product or filters.status != 'all' or filters.price_min %}
+            <div style="text-align: center;">
+                <a href="{{ url_for('main.admin_orders') }}" style="color: #E63946; font-size: 0.9em; text-decoration: underline;">Wis filters</a>
+            </div>
+            {% endif %}
+        </form>
     </div>
 
     <div style="margin-bottom: 50px;">
@@ -117,40 +167,154 @@
                 <tbody>
                     {% for order in pagination_future.items %}
                         <tr style="border-bottom: 1px solid #eee;">
-                            <td style="padding: 15px;">{{ order.pickup_date.strftime('%d-%m-%Y') }}</td>
+                            <td style="padding: 15px; font-weight: bold;">{{ order.pickup_date.strftime('%d-%m-%Y') }}</td>
                             <td style="padding: 15px;">{{ order.profile.full_name }}</td>
-                            <td style="padding: 15px;">{{ order.items|length }} items</td>
+                            
+                            <td style="padding: 15px;">
+                                <div class="item-tooltip-wrapper" 
+                                     onmouseenter="showTooltip(event, `
+                                        <ul class='item-list-small'>
+                                            {% for item in order.items %}
+                                                <li>{{ item.quantity }}x {{ item.product.name }}</li>
+                                            {% endfor %}
+                                        </ul>
+                                     `)"
+                                     onmouseleave="hideTooltip()">
+                                    <span>{{ order.items|length }} items</span> 
+                                    <span style="color:#888; font-weight:normal; margin-left:5px;">(€ {{ order.total_price }})</span>
+                                </div>
+                            </td>
+                            
                             <td style="padding: 15px;"><span class="status-badge status-warn">Toekomst</span></td>
                         </tr>
                     {% else %}
-                        <tr><td colspan="4" style="padding: 20px; text-align: center;">Geen orders.</td></tr>
+                        <tr><td colspan="4" style="padding: 20px; text-align: center; color: #666;">Geen resultaten.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
+        </div>
+        
+        <div style="margin-top: 10px; text-align: center;">
+            {% if pagination_future.has_prev %}
+                <a href="{{ url_for('main.admin_orders', page_future=pagination_future.prev_num, filter_date=filters.date, filter_client=filters.client, filter_product=filters.product, filter_status=filters.status, filter_price_min=filters.price_min) }}" class="btn-admin-nav">&larr;</a>
+            {% endif %}
+            <span style="margin: 0 10px;">Pagina {{ pagination_future.page }}</span>
+            {% if pagination_future.has_next %}
+                <a href="{{ url_for('main.admin_orders', page_future=pagination_future.next_num, filter_date=filters.date, filter_client=filters.client, filter_product=filters.product, filter_status=filters.status, filter_price_min=filters.price_min) }}" class="btn-admin-nav">&rarr;</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div style="opacity: 0.9;">
+        <h3 style="color: #666; margin-bottom: 15px;">Orders Verleden</h3>
+        <div class="cart-container table-responsive" style="padding: 0; background: #f9f9f9;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="border-bottom: 2px solid #eee; text-align: left; color: #666;">
+                        <th style="padding: 15px;">Datum</th>
+                        <th style="padding: 15px;">Klant</th>
+                        <th style="padding: 15px;">Bestelling</th>
+                        <th style="padding: 15px;">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for order in pagination_history.items %}
+                        <tr style="border-bottom: 1px solid #eee;">
+                            <td style="padding: 15px;">{{ order.pickup_date.strftime('%d-%m-%Y') }}</td>
+                            <td style="padding: 15px;">{{ order.profile.full_name }}</td>
+                            
+                            <td style="padding: 15px;">
+                                <div class="item-tooltip-wrapper" 
+                                     onmouseenter="showTooltip(event, `
+                                        <ul class='item-list-small'>
+                                            {% for item in order.items %}
+                                                <li>{{ item.quantity }}x {{ item.product.name }}</li>
+                                            {% endfor %}
+                                        </ul>
+                                     `)"
+                                     onmouseleave="hideTooltip()">
+                                    <span>{{ order.items|length }} items</span> 
+                                    <span style="color:#888; font-weight:normal; margin-left:5px;">(€ {{ order.total_price }})</span>
+                                </div>
+                            </td>
+
+                            <td style="padding: 15px;">
+                                {% if order.status == 'picked_up' %}
+                                    <span class="status-badge" style="background:#ddd; color:#555;">Opgehaald</span>
+                                {% elif order.status == 'cancelled' %}
+                                    <span class="status-badge" style="background:#FFEBEE; color:#C62828;">Geannuleerd</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="4" style="padding: 20px; text-align: center; color: #666;">Geen resultaten.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <div style="margin-top: 10px; text-align: center;">
+            {% if pagination_history.has_prev %}
+                <a href="{{ url_for('main.admin_orders', page_history=pagination_history.prev_num, filter_date=filters.date, filter_client=filters.client, filter_product=filters.product, filter_status=filters.status, filter_price_min=filters.price_min) }}" class="btn-admin-nav">&larr;</a>
+            {% endif %}
+            <span style="margin: 0 10px;">Pagina {{ pagination_history.page }}</span>
+            {% if pagination_history.has_next %}
+                <a href="{{ url_for('main.admin_orders', page_history=pagination_history.next_num, filter_date=filters.date, filter_client=filters.client, filter_product=filters.product, filter_status=filters.status, filter_price_min=filters.price_min) }}" class="btn-admin-nav">&rarr;</a>
+            {% endif %}
         </div>
     </div>
 
 </div>
 
+<div id="floating-tooltip"></div>
+
 <script>
-    function filterOrders(status, btn) {
-        // 1. Knoppen styling resetten
+    // JS Filter voor vandaag
+    let currentStatusFilter = 'all';
+    function setFilter(status, btn) {
         document.querySelectorAll('.filter-action-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-
-        // 2. Rijen filteren
+        currentStatusFilter = status;
+        applyFilters();
+    }
+    function applyFilters() {
+        const input = document.getElementById('searchInput');
+        const filterText = input.value.toLowerCase();
         const rows = document.querySelectorAll('.order-row');
         rows.forEach(row => {
-            if (status === 'all') {
-                row.style.display = '';
-            } else {
-                if (row.classList.contains('status-' + status)) {
-                    row.style.display = '';
-                } else {
-                    row.style.display = 'none';
-                }
-            }
+            let statusMatch = (currentStatusFilter === 'all') || row.classList.contains('status-' + currentStatusFilter);
+            let searchContent = row.getAttribute('data-search') || "";
+            let textMatch = searchContent.includes(filterText);
+            if (statusMatch && textMatch) { row.style.display = ''; } else { row.style.display = 'none'; }
         });
     }
+
+    // SLIMME TOOLTIP FUNCTIE
+    const tooltip = document.getElementById('floating-tooltip');
+
+    function showTooltip(event, content) {
+        tooltip.innerHTML = content;
+        tooltip.style.display = 'block';
+        moveTooltip(event); // Direct positioneren
+    }
+
+    function hideTooltip() {
+        tooltip.style.display = 'none';
+    }
+
+    function moveTooltip(event) {
+        // Plaats tooltip rechtsonder de muiscursor
+        const x = event.clientX + 15;
+        const y = event.clientY + 15;
+        tooltip.style.left = x + 'px';
+        tooltip.style.top = y + 'px';
+    }
+
+    // Luister naar muisbeweging zolang de tooltip zichtbaar is
+    document.addEventListener('mousemove', function(e) {
+        if (tooltip.style.display === 'block') {
+            moveTooltip(e);
+        }
+    });
 </script>
 {% endblock %}

@@ -10,11 +10,23 @@
         </div>
         
         <div style="display: flex; gap: 8px;">
-            <a href="{{ url_for('main.admin_inventory') }}" class="btn-admin-nav" style="background: white; color: #593C28; border: 2px solid #eee;">Voorraad</a>
-            <a href="{{ url_for('main.admin_products') }}" class="btn-admin-nav">Producten</a>
-            <a href="{{ url_for('main.admin_orders') }}" class="btn-admin-nav">Orders</a>
-            <a href="{{ url_for('main.admin_forecast') }}" class="btn-admin-nav">Forecast</a>
-            <a href="{{ url_for('main.admin_settings') }}" class="btn-admin-nav">Settings</a>
+            <a href="{{ url_for('main.admin_inventory') }}" class="btn-admin-nav" style="background: white; color: #593C28; border: 2px solid #eee;">
+                Voorraad
+            </a>
+            
+            <a href="{{ url_for('main.admin_products') }}" class="btn-admin-nav">
+                Producten
+            </a>
+            <a href="{{ url_for('main.admin_orders') }}" class="btn-admin-nav">
+                Orders
+            </a>
+            
+            <a href="{{ url_for('main.admin_forecast') }}" class="btn-admin-nav">
+                Forecast
+            </a>
+            <a href="{{ url_for('main.admin_settings') }}" class="btn-admin-nav">
+                Settings
+            </a>
         </div>
     </div>
 
@@ -24,21 +36,31 @@
                 <tr style="border-bottom: 2px solid #eee; text-align: left; color: #593C28;">
                     <th style="padding: 15px;">Ingrediënt</th>
                     <th style="padding: 15px;">Huidige Voorraad</th>
-                    <th style="padding: 15px;">Eenheid</th>
-                    <th style="padding: 15px;">Status</th>
+                    <th style="padding: 15px;">Nodig (7 dgn)</th> <th style="padding: 15px;">Status</th>
                     <th style="padding: 15px;">Actie</th> 
                 </tr>
             </thead>
             <tbody>
                 {% for ingredient in ingredients %}
+                    {% set needed = needs_map.get(ingredient.name, 0) %}
+                    
                     <tr style="border-bottom: 1px solid #f0f0f0;">
+                        
                         <td style="padding: 15px;"><strong>{{ ingredient.name }}</strong></td>
-                        <td style="padding: 15px; font-weight: bold; font-size: 1.1em;">{{ ingredient.stock_quantity }}</td>
-                        <td style="padding: 15px;">{{ ingredient.unit }}</td>
+                        
+                        <td style="padding: 15px; font-weight: bold; font-size: 1.1em;">
+                            {{ ingredient.stock_quantity }} {{ ingredient.unit }}
+                        </td>
+                        
+                        <td style="padding: 15px; color: #666;">
+                            {{ needed }} {{ ingredient.unit }}
+                        </td>
                         
                         <td style="padding: 15px;">
-                            {% if ingredient.stock_quantity < ingredient.threshold %}
-                                <span class="status-badge status-warn">⚠️ BIJBESTELLEN</span>
+                            {% if ingredient.stock_quantity < needed %}
+                                <span class="status-badge status-warn" title="Voorraad lager dan verwachte vraag">
+                                    ⚠️ BIJBESTELLEN
+                                </span>
                             {% else %}
                                 <span class="status-badge status-ok">✅ OK</span>
                             {% endif %}
@@ -46,14 +68,14 @@
                         
                         <td style="padding: 15px;">
                             <div style="display: flex; align-items: center;">
-        
+                                
                                 <form action="{{ url_for('main.restock_ingredient') }}" method="POST" class="inventory-actions">
                                     <input type="hidden" name="ingredient_id" value="{{ ingredient.id }}">
-            
+                                    
                                     <input type="number" name="amount" placeholder="0" min="1" required class="inventory-input">
-            
+                                    
                                     <button type="submit" class="inventory-btn btn-restock" title="Bijvullen">
-                                       +
+                                        +
                                     </button>
                                 </form>
 
@@ -61,9 +83,9 @@
 
                                 <form action="{{ url_for('main.waste_ingredient') }}" method="POST" class="inventory-actions">
                                     <input type="hidden" name="ingredient_id" value="{{ ingredient.id }}">
-            
+                                    
                                     <input type="number" name="amount" placeholder="0" min="1" required class="inventory-input" style="border-color: #E63946; color: #E63946;">
-            
+                                    
                                     <button type="submit" class="inventory-btn btn-waste" title="Afschrijven">
                                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="white" width="18" height="18">
                                             <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
@@ -73,9 +95,12 @@
 
                             </div>
                         </td>
+                        
                     </tr>
                 {% else %}
-                    <tr><td colspan="5" style="padding: 30px; text-align: center;">Geen ingrediënten.</td></tr>
+                    <tr>
+                        <td colspan="5" style="padding: 30px; text-align: center;">Geen ingrediënten gevonden in de database.</td>
+                    </tr>
                 {% endfor %}
             </tbody>
         </table>

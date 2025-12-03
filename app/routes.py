@@ -7,6 +7,7 @@ from decimal import Decimal
 from datetime import datetime, timedelta, date
 from werkzeug.utils import secure_filename
 from sqlalchemy import text
+from sqlalchemy import or_
 from icalendar import Calendar, Event
 
 # Importeer je modellen en database
@@ -467,8 +468,28 @@ def toggle_admin():
 @main.route('/admin/voorraad')
 def admin_inventory():
     if not check_admin(): return redirect(url_for('main.index'))
+    
+    # 1. Haal de huidige voorraad op
     ingredients = Ingredient.query.order_by(Ingredient.name).all()
-    return render_template('admin_inventory.html', ingredients=ingredients)
+    
+    # 2. Haal de AI voorspelling op
+    # FIX: We vangen nu precies 5 items op (matcht met jouw analytics.py)
+    try:
+        _, _, shop_week, _, _ = generate_smart_forecast()
+        
+        # Debug print
+        print(f"DEBUG: Aantal voorspelde ingrediënten in Inventory: {len(shop_week) if shop_week else 0}")
+
+        if shop_week:
+            needs_map = {item['name']: item['amount'] for item in shop_week}
+        else:
+            needs_map = {}
+            
+    except Exception as e:
+        print(f"❌ Fout bij ophalen forecast in inventory: {e}")
+        needs_map = {}
+
+    return render_template('admin_inventory.html', ingredients=ingredients, needs_map=needs_map)
 
 @main.route('/admin/restock', methods=['POST'])
 def restock_ingredient():
@@ -497,27 +518,85 @@ def admin_orders():
     if not check_admin(): return redirect(url_for('main.index'))
     
     today = date.today()
+    
+    # 1. Paginering
     page_future = request.args.get('page_future', 1, type=int)
     page_history = request.args.get('page_history', 1, type=int)
     
+    # 2. Filters ophalen
+    f_date = request.args.get('filter_date')
+    f_client = request.args.get('filter_client')
+    f_product = request.args.get('filter_product')
+    f_status = request.args.get('filter_status')
+    f_price_min = request.args.get('filter_price_min')
+    
+    # --- BASIS QUERIES ---
+    # Orders van vandaag (Ongefilterd voor JS filtering)
     orders_today = Order.query.filter(
         Order.pickup_date == today, 
         Order.status.notin_(['picked_up', 'cancelled'])
     ).all()
     
-    pagination_future = Order.query.filter(
-        Order.pickup_date > today
-    ).order_by(Order.pickup_date.asc()).paginate(page=page_future, per_page=15, error_out=False)
+    q_future = Order.query.filter(Order.pickup_date > today)
     
-    pagination_history = Order.query.filter(
+    q_history = Order.query.filter(
         (Order.pickup_date < today) | 
         ((Order.pickup_date == today) & (Order.status.in_(['picked_up', 'cancelled'])))
-    ).order_by(Order.pickup_date.desc()).paginate(page=page_history, per_page=15, error_out=False)
+    )
+
+    # --- FILTER FUNCTIE ---
+    def apply_filters(query):
+        # Datum (Met FIX voor SQL Error)
+        if f_date:
+            try:
+                date_obj = datetime.strptime(f_date, '%Y-%m-%d').date()
+                query = query.filter(Order.pickup_date == date_obj)
+            except ValueError:
+                pass # Negeer ongeldige datum
+        
+        # Klant
+        if f_client:
+            query = query.join(Profile).filter(Profile.full_name.ilike(f"%{f_client}%"))
+            
+        # Product
+        if f_product:
+            query = query.join(OrderItem).join(Product).filter(Product.name.ilike(f"%{f_product}%"))
+            
+        # Status
+        if f_status and f_status != 'all':
+            query = query.filter(Order.status == f_status)
+            
+        # Prijs
+        if f_price_min:
+            try:
+                query = query.filter(Order.total_price >= Decimal(f_price_min))
+            except: pass
+            
+        return query
+
+    # Filters toepassen
+    q_future = apply_filters(q_future)
+    q_history = apply_filters(q_history)
+
+    # Distinct nodig als we joinen op producten (voorkomt dubbele orders)
+    if f_product:
+        q_future = q_future.distinct()
+        q_history = q_history.distinct()
+
+    # Paginering
+    pagination_future = q_future.order_by(Order.pickup_date.asc()).paginate(page=page_future, per_page=10, error_out=False)
+    pagination_history = q_history.order_by(Order.pickup_date.desc()).paginate(page=page_history, per_page=10, error_out=False)
     
+    current_filters = {
+        'date': f_date or '', 'client': f_client or '', 'product': f_product or '',
+        'status': f_status or 'all', 'price_min': f_price_min or ''
+    }
+
     return render_template('admin_orders.html', 
                            orders_today=orders_today, 
                            pagination_future=pagination_future,
-                           pagination_history=pagination_history)
+                           pagination_history=pagination_history,
+                           filters=current_filters)
 
 @main.route('/admin/order/update/<int:order_id>', methods=['POST'])
 def update_order_status(order_id):
