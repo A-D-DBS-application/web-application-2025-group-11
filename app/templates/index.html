@@ -17,7 +17,7 @@
             </div>
         </div>
         <div class="hero-image">
-            <img src="{{ url_for('static', filename='img/brood-foto.jpg') }}" alt="Vers brood">
+            <img src="{{ settings.hero_image_url | product_img if settings.hero_image_url else url_for('static', filename='img/brood-foto.jpg') }}" alt="Vers brood">
         </div>
     </div>
 </section>

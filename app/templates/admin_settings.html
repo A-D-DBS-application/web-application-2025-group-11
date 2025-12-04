@@ -6,8 +6,9 @@
     <div class="admin-header-container">
         <div class="admin-header-text">
             <h1>Instellingen</h1>
-            <p>Beheer algemene gegevens en beheerders.</p>
+            <p>Beheer algemene gegevens, openingstijden en beheerders.</p>
         </div>
+        
         <div style="display: flex; gap: 8px;">
             <a href="{{ url_for('main.admin_inventory') }}" class="btn-admin-nav">Voorraad</a>
             <a href="{{ url_for('main.admin_products') }}" class="btn-admin-nav">Producten</a>
@@ -23,7 +24,7 @@
             <div class="cart-container">
                 <h3 style="color: #593C28; margin-bottom: 20px;">🏠 Website Gegevens</h3>
                 
-                <form action="{{ url_for('main.update_settings') }}" method="POST">
+                <form action="{{ url_for('main.update_settings') }}" method="POST" enctype="multipart/form-data">
                     
                     <div class="form-group">
                         <label class="form-label">Titel op Homepage</label>
@@ -44,6 +45,16 @@
                         <label class="form-label">Deadline Bestellen (Uur)</label>
                         <input type="number" name="deadline_hour" value="{{ settings.deadline_hour }}" min="0" max="23" class="form-input" style="width: 80px;">
                         <small style="color: #666;">Uur (bv. 17 voor 17:00)</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Grote Foto Hoofdpagina</label>
+                        {% if settings.hero_image_url %}
+                            <div style="margin-bottom: 10px;">
+                                <img src="{{ settings.hero_image_url | product_img }}" style="height: 120px; border-radius: 8px; object-fit: cover;">
+                            </div>
+                        {% endif %}
+                        <input type="file" name="hero_image_file" accept="image/*" class="form-input" style="font-size: 0.9em;">
                     </div>
 
                     <hr class="separator">
@@ -69,8 +80,17 @@
                     <hr class="separator">
 
                     <h4 class="section-title">🕒 Openingsuren</h4>
+                    
+                    <div class="form-group" style="margin-bottom: 20px;">
+                        <label class="form-label">Uitzonderlijke Sluitingsdagen (Vakantie/Feestdagen)</label>
+                        <input type="text" id="closed_dates_input" name="closed_dates_input" 
+                               placeholder="Klik om datums te kiezen..." 
+                               class="form-input"
+                               value="{% if settings.closed_dates_json %}{{ settings.closed_dates_json|replace('[','',)|replace(']','',)|replace('"','') }}{% endif %}">
+                    </div>
+
                     <p style="font-size: 0.9em; color: #666; margin-bottom: 10px;">
-                        Vink aan als de winkel dicht is.
+                        Wekelijks rooster (Vink aan als de winkel dicht is):
                     </p>
 
                     <div class="schedule-container">
@@ -100,7 +120,9 @@
                         {% endfor %}
                     </div>
 
-                    <button type="submit" class="btn-bestel" style="margin-top: 20px; width: 100%;">Opslaan</button>
+                    <button type="submit" class="btn-bestel" style="margin-top: 25px; width: 100%; padding: 15px; height: auto; font-size: 1.1rem;">
+                        OPSLAAN
+                    </button>
                 </form>
             </div>
         </div>
@@ -145,17 +167,25 @@
 </div>
 
 <script>
+    // Toggle input velden grijs/wit bij checkbox
     function toggleInput(el) {
-        // We halen de index op via het data-attribuut (VS Code friendly)
         var dayIndex = el.dataset.index;
         var input = document.getElementById('text_' + dayIndex);
         
         if (el.checked) {
             input.classList.add('disabled');
-            // Optioneel: reset waarde of maak grijs
         } else {
             input.classList.remove('disabled');
         }
     }
+
+    // Flatpickr initialiseren voor de specifieke datums
+    document.addEventListener('DOMContentLoaded', function() {
+        flatpickr("#closed_dates_input", {
+            mode: "multiple",
+            dateFormat: "Y-m-d",
+            locale: "nl"
+        });
+    });
 </script>
 {% endblock %}

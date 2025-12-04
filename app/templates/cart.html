@@ -60,10 +60,12 @@
                 <form action="{{ url_for('main.checkout') }}" method="POST">
                     <div style="margin-bottom: 15px;">
                         <label for="pickup_date" style="display: block; margin-bottom: 5px; font-weight: bold; color: #593C28;">Ophaaldatum:</label>
+                        
                         <input type="text" id="pickup_date" name="pickup_date" class="form-control" required 
                                placeholder="Klik voor datum..."
                                data-min-date="{{ min_date_str }}" 
                                data-closed-days='{{ closed_days | tojson }}'
+                               data-specific-dates='{{ specific_closed_dates | tojson }}'
                                style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
                     </div>
                     <div style="margin-bottom: 20px;">
@@ -97,13 +99,26 @@
     document.addEventListener('DOMContentLoaded', function() {
         const dateInput = document.getElementById('pickup_date');
         if (dateInput) {
+            // FIX: Data uitlezen via dataset ipv Jinja direct in JS
             const minDate = dateInput.dataset.minDate;
             const closedDays = JSON.parse(dateInput.dataset.closedDays || '[]');
+            const specificClosedDates = JSON.parse(dateInput.dataset.specificDates || '[]');
+
             flatpickr("#pickup_date", {
                 locale: "nl",
                 dateFormat: "Y-m-d",
                 minDate: minDate,
-                disable: [ function(date) { return closedDays.includes(date.getDay()); } ],
+                
+                disable: [
+                    // 1. Wekelijkse sluitingsdagen
+                    function(date) {
+                        // date.getDay() geeft 0 (zo) - 6 (za). closedDays bevat deze nummers.
+                        return closedDays.includes(date.getDay());
+                    },
+                    // 2. Specifieke datums (Vakanties) - Spread syntax ... voegt ze toe aan de array
+                    ...specificClosedDates
+                ],
+                
                 disableMobile: "true",
                 firstDayOfWeek: 1
             });

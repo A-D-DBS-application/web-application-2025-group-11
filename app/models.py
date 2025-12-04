@@ -154,6 +154,7 @@ class AppSettings(db.Model):
     welcome_text = db.Column(db.Text)
     intro_text = db.Column(db.Text)
     deadline_hour = db.Column(db.Integer, default=17)
+    hero_image_url = db.Column(db.Text)
     
     # Contactgegevens
     phone_number = db.Column(db.Text)
@@ -161,3 +162,4 @@ class AppSettings(db.Model):
     address_text = db.Column(db.Text)
     opening_hours = db.Column(db.Text) #mag eig weg, maar als fallback voor nu laten staan
     weekly_schedule_json = db.Column(db.Text)
+    closed_dates_json = db.Column(db.Text)

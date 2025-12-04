@@ -7,6 +7,7 @@
     <p style="text-align: center; color: #666; margin-bottom: 40px;">Heb je een vraag over allergenen of een speciale bestelling? Spring gerust binnen!</p>
     
     <div style="display: flex; gap: 30px; flex-wrap: wrap;">
+        
         <div style="flex: 1; min-width: 300px; display: flex; flex-direction: column; gap: 20px;">
             <div class="cart-container" style="padding: 25px;">
                 <h3 style="margin-bottom: 15px; border-bottom: 2px solid #eee; padding-bottom: 10px;">📍 Onze Gegevens</h3>
@@ -28,6 +29,60 @@
             <div class="cart-container" style="padding: 25px; background-color: #F1F8E9; border: 1px solid #C8E6C9;">
                 <h3 style="color: #2E7D32; margin-bottom: 15px; border-bottom: 2px solid #C8E6C9; padding-bottom: 10px;">🕒 Openingsuren</h3>
                 <p style="white-space: pre-line; color: #333; line-height: 1.8;">{{ settings.opening_hours }}</p>
+
+                {% if settings.closed_dates_json %}
+                    {% set raw_dates_contact = settings.closed_dates_json|replace('[','',)|replace(']','',)|replace('"','') %}
+                    
+                    {% if raw_dates_contact %}
+                        <div style="margin-top: 20px; background: #fff; padding: 15px; border-radius: 8px; border-left: 5px solid #E63946; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+                            <strong style="color: #E63946; display:block; margin-bottom:5px;">⚠️ Uitzonderlijk gesloten:</strong>
+                            <span id="holiday-display-contact" style="color: #555; line-height: 1.4;">Laden...</span>
+                            
+                            <script>
+                                (function() {
+                                    try {
+                                        const raw = "{{ raw_dates_contact }}";
+                                        if (!raw) return;
+
+                                        let dates = raw.split(',').map(d => d.trim()).sort();
+                                        let ranges = [];
+                                        let start = dates[0];
+                                        let prev = dates[0];
+
+                                        const diffDays = (d1, d2) => {
+                                            const date1 = new Date(d1);
+                                            const date2 = new Date(d2);
+                                            return (date2 - date1) / (1000 * 60 * 60 * 24);
+                                        };
+
+                                        const fmt = (d) => {
+                                            const parts = d.split('-'); 
+                                            return `${parts[2]}/${parts[1]}`; 
+                                        };
+
+                                        for (let i = 1; i < dates.length; i++) {
+                                            let current = dates[i];
+                                            if (diffDays(prev, current) === 1) {
+                                                prev = current;
+                                            } else {
+                                                if (start === prev) ranges.push(fmt(start));
+                                                else ranges.push(`${fmt(start)} t/m ${fmt(prev)}`);
+                                                start = current;
+                                                prev = current;
+                                            }
+                                        }
+                                        if (start === prev) ranges.push(fmt(start));
+                                        else ranges.push(`${fmt(start)} t/m ${fmt(prev)}`);
+
+                                        document.getElementById('holiday-display-contact').innerText = ranges.join(', ');
+                                    } catch (e) {
+                                        document.getElementById('holiday-display-contact').innerText = "{{ raw_dates_contact }}";
+                                    }
+                                })();
+                            </script>
+                        </div>
+                    {% endif %}
+                {% endif %}
             </div>
         </div>
         

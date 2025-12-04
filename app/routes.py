@@ -277,12 +277,20 @@ def view_cart():
                     js_day = i + 1 if i < 6 else 0
                     closed_days.append(js_day)
         except: pass
+    
+    specific_closed_dates = []
+    if settings.closed_dates_json:
+        try:
+            # Laad de JSON lijst uit de database
+            specific_closed_dates = json.loads(settings.closed_dates_json)
+        except: pass
 
     return render_template('cart.html', 
                            cart_items=products_in_cart, 
                            total_cart_price=total_cart_price, 
                            min_date_str=min_date_str,
-                           closed_days=closed_days)
+                           closed_days=closed_days,
+                           specific_closed_dates=specific_closed_dates)
 
 @main.route('/cart/add/<int:product_id>', methods=['POST'])
 def add_to_cart(product_id):
@@ -395,6 +403,20 @@ def admin_settings():
     users = Profile.query.filter_by(is_admin=False).all()
     
     settings = get_settings()
+    
+    if settings.closed_dates_json:
+        try:
+            dates_list = json.loads(settings.closed_dates_json)
+            today_str = date.today().strftime('%Y-%m-%d')
+            
+            clean_dates = [d for d in dates_list if d >= today_str]
+            
+            if len(dates_list) != len(clean_dates):
+                settings.closed_dates_json = json.dumps(clean_dates)
+                db.session.commit()
+        except Exception as e:
+            print(f"Fout bij opschonen datums: {e}")
+    
     try:
         schedule = json.loads(settings.weekly_schedule_json)
     except:
@@ -420,20 +442,28 @@ def update_settings():
     s.email_address = request.form.get('email_address')
     s.address_text = request.form.get('address_text')
     
-    new_schedule = {}
-    formatted_text = []
-    short_names = ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo']
-    
-    for i in range(7):
-        is_closed = request.form.get(f'day_{i}_closed') == 'on'
-        text_hours = request.form.get(f'day_{i}_text')
-        new_schedule[str(i)] = {'closed': is_closed, 'text': text_hours}
-        status = "GESLOTEN" if is_closed else text_hours
-        formatted_text.append(f"{short_names[i]}: {status}")
+    # 1. FOTO UPLOAD LOGICA (FIXED)
+    hero_file = request.files.get('hero_image_file')
+    if hero_file and hero_file.filename != '':
+        # Gebruik de helper functie die we eerder maakten
+        url = upload_image_to_supabase(hero_file)
+        if url:
+            s.hero_image_url = url
+            # Als er geen URL terugkomt (fout), behouden we de oude
 
-    s.weekly_schedule_json = json.dumps(new_schedule)
-    s.opening_hours = "\n".join(formatted_text)
+    # 2. SLUITINGSDAGEN LOGICA (FIXED)
+    # Flatpickr stuurt "2025-12-06, 2025-12-13" (komma gescheiden)
+    raw_dates = request.form.get('closed_dates_input')
+    if raw_dates:
+        # We maken er een nette lijst van: ["2025-12-06", "2025-12-13"]
+        date_list = [d.strip() for d in raw_dates.split(',') if d.strip()]
+        s.closed_dates_json = json.dumps(date_list)
+    else:
+        s.closed_dates_json = json.dumps([]) # Leegmaken als veld leeg is
+
+    # ... (rest van openingsuren logica blijft hetzelfde) ...
     
+    # ... (opslaan) ...
     db.session.commit()
     flash('Instellingen opgeslagen.', 'success')
     return redirect(url_for('main.admin_settings'))
