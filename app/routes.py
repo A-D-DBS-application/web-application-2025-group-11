@@ -113,11 +113,14 @@ def inject_global_vars():
     # 4. Huidig jaar
     current_year = datetime.now().year
 
+    today_date = date.today()
+
     return dict(
         cart_item_count=cart_count,
         current_user=user_profile,
         settings=settings,
-        current_year=current_year
+        current_year=current_year,
+        today=today_date
     )
 
 
@@ -148,10 +151,71 @@ def my_orders():
     user_id = session['user_id']
     page = request.args.get('page', 1, type=int)
     
-    pagination = Order.query.filter_by(user_id=user_id)\
-                            .order_by(Order.created_at.desc())\
-                            .paginate(page=page, per_page=10, error_out=False)
-    return render_template('my_orders.html', pagination=pagination)
+    # Filters ophalen
+    f_date = request.args.get('filter_date')
+    f_product = request.args.get('filter_product')
+    f_price = request.args.get('filter_price')
+    
+    # Basis query: Alleen orders van DEZE gebruiker
+    query = Order.query.filter_by(user_id=user_id)
+    
+    # 1. Datum Filter
+    if f_date:
+        try:
+            date_obj = datetime.strptime(f_date, '%Y-%m-%d').date()
+            query = query.filter(Order.pickup_date == date_obj)
+        except ValueError: pass
+
+    # 2. Product Filter (Join nodig)
+    if f_product:
+        query = query.join(OrderItem).join(Product).filter(Product.name.ilike(f"%{f_product}%")).distinct()
+
+    # 3. Prijs Filter (Minimum bedrag)
+    if f_price:
+        try:
+            query = query.filter(Order.total_price >= Decimal(f_price))
+        except: pass
+
+    # Sorteren en Paginering
+    pagination = query.order_by(Order.pickup_date.desc()).paginate(page=page, per_page=5, error_out=False)
+    
+    # Huidige filters onthouden voor in de template
+    current_filters = {
+        'date': f_date or '',
+        'product': f_product or '',
+        'price': f_price or ''
+    }
+    
+    return render_template('my_orders.html', pagination=pagination, filters=current_filters)
+
+@main.route('/order/cancel/<int:order_id>', methods=['POST'])
+def cancel_my_order(order_id):
+    if 'user_id' not in session: return redirect(url_for('main.login'))
+    
+    order = Order.query.get_or_404(order_id)
+    
+    # 1. Beveiliging: Is dit wel MIJN order?
+    if str(order.user_id) != session['user_id']:
+        flash("Je kunt alleen je eigen bestellingen annuleren.", "danger")
+        return redirect(url_for('main.my_orders'))
+    
+    # 2. Status Check: Is hij al opgehaald of geannuleerd?
+    if order.status != 'pending':
+        flash("Deze bestelling kan niet meer geannuleerd worden.", "warning")
+        return redirect(url_for('main.my_orders'))
+
+    # 3. Datum Check: Is het nog minstens 2 dagen van tevoren?
+    # pickup_date (date) - today (date) = timedelta
+    days_difference = (order.pickup_date - date.today()).days
+    
+    if days_difference >= 2:
+        order.status = 'cancelled'
+        db.session.commit()
+        flash(f'Bestelling #{order.id} is succesvol geannuleerd.', 'success')
+    else:
+        flash('Annuleren kan tot 2 dagen voor ophaaldatum. Neem telefonisch contact op.', 'warning')
+        
+    return redirect(url_for('main.my_orders'))
 
 # --- ICAL DOWNLOAD ---
 @main.route('/order/<int:order_id>/ical')
