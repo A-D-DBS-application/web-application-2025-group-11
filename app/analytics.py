@@ -1,10 +1,11 @@
 import pandas as pd
 import numpy as np
 import holidays
+import json  # NIEUW: Nodig om settings te lezen
 from datetime import datetime, date, timedelta
 from decimal import Decimal
 from sklearn.ensemble import RandomForestRegressor
-from .models import db, Order, OrderItem, Product, Ingredient
+from .models import db, Order, OrderItem, Product, Ingredient, AppSettings # NIEUW: AppSettings toegevoegd
 from sqlalchemy import text
 
 # --- CACHE OPSLAG ---
@@ -35,8 +36,30 @@ def generate_smart_forecast(force_refresh=False):
 
     print("--- 🧠 AI TWIN-ENGINE STARTEN ---")
 
+    # --- NIEUW: SLUITINGSDAGEN OPHALEN ---
+    # We halen nu eerst de settings op om te weten wanneer we dicht zijn
+    settings = AppSettings.query.first()
+    closed_dates_list = []
+    closed_weekdays = [] # 0=Ma, 6=Zo
+
+    if settings:
+        # Specifieke datums (Vakanties)
+        if settings.closed_dates_json:
+            try:
+                closed_dates_list = json.loads(settings.closed_dates_json)
+            except: pass
+        
+        # Wekelijks rooster
+        if settings.weekly_schedule_json:
+            try:
+                schedule = json.loads(settings.weekly_schedule_json)
+                for day_idx, data in schedule.items():
+                    if data.get('closed'):
+                        closed_weekdays.append(int(day_idx))
+            except: pass
+    # --------------------------------------
+
     # 2. DATA OPHALEN (Historie van 1 jaar)
-    # We halen ALLES op, en splitsen het daarna in Python
     sql = text("""
         SELECT orders.pickup_date, orders.remarks, products.name, order_items.quantity
         FROM order_items
@@ -62,15 +85,10 @@ def generate_smart_forecast(force_refresh=False):
         df['is_holiday'] = df['pickup_date'].apply(is_special_day)
 
         # --- SPLITSEN: WINKEL vs ONLINE ---
-        # We filteren op de remarks 'Winkelverkoop' die de seeder gebruikt
-        # df_shop = Data om de AI mee te trainen (het onvoorspelbare gedrag)
         df_shop = df[df['remarks'] == 'Winkelverkoop'].copy()
-        
-        # Groepeer de winkelverkoop per dag
         daily_shop_sales = df_shop.groupby(['date_ordinal', 'weekday', 'is_holiday', 'name'])['quantity'].sum().reset_index()
 
-        # --- 3. HARDE BESTELLINGEN (TOEKOMST) ---
-        # Dit zijn de orders die al in het systeem staan voor de komende week
+        # --- HARDE BESTELLINGEN (TOEKOMST) ---
         future_sql = text("""
             SELECT orders.pickup_date, products.name, SUM(order_items.quantity) as total_ordered
             FROM order_items
@@ -91,17 +109,15 @@ def generate_smart_forecast(force_refresh=False):
                 future_orders_map[(row['pickup_date'], row['name'])] = row['total_ordered']
 
         forecast_results = []
-        unique_products = df['name'].unique() # Alle producten
+        unique_products = df['name'].unique()
         
         start_prediction = date.today() + timedelta(days=1)
         end_prediction = date.today() + timedelta(days=7)
 
-        # --- A. VOORSPELLEN ---
+        # --- VOORSPELLEN ---
         for product_name in unique_products:
-            # Pak alleen de WINKEL historie van dit product
             product_data = daily_shop_sales[daily_shop_sales['name'] == product_name].copy()
             
-            # Train model alleen als er genoeg winkeldata is
             model = None
             if len(product_data) >= 5:
                 X = product_data[['date_ordinal', 'weekday', 'is_holiday']]
@@ -114,34 +130,38 @@ def generate_smart_forecast(force_refresh=False):
             
             for i in range(1, 8):
                 future_date = date.today() + timedelta(days=i)
+                future_date_str = future_date.strftime('%Y-%m-%d')
                 
-                # 1. AI Voorspelling (Winkelverkoop / Walk-ins)
-                shop_prediction = 0
-                if model:
-                    future_features = pd.DataFrame({
-                        'date_ordinal': [future_date.toordinal()],
-                        'weekday': [future_date.weekday()],
-                        'is_holiday': [is_special_day(future_date)]
-                    })
-                    raw_pred = model.predict(future_features)[0]
-                    shop_prediction = max(0, raw_pred)
+                # --- NIEUW: CHECK OP SLUITINGSDAGEN ---
+                is_closed_specific = future_date_str in closed_dates_list
+                is_closed_weekly = future_date.weekday() in closed_weekdays
+                
+                # Als de winkel dicht is, voorspellen we 0 (behalve als er stiekem online bestellingen staan)
+                if is_closed_specific or is_closed_weekly:
+                    shop_prediction = 0
+                    # Online orders tellen we WEL op (voor het geval je die niet geannuleerd hebt)
+                    # Maar de 'spontane' verkoop is 0.
+                else:
+                    shop_prediction = 0
+                    if model:
+                        future_features = pd.DataFrame({
+                            'date_ordinal': [future_date.toordinal()],
+                            'weekday': [future_date.weekday()],
+                            'is_holiday': [is_special_day(future_date)]
+                        })
+                        raw_pred = model.predict(future_features)[0]
+                        shop_prediction = max(0, raw_pred)
 
-                # 2. Veiligheidsmarge (10% extra op de gok)
-                shop_qty_safe = int(np.ceil(shop_prediction * 1.10))
+                # Veiligheidsmarge (alleen als de winkel open is)
+                shop_qty_safe = int(np.ceil(shop_prediction * 1.10)) if shop_prediction > 0 else 0
 
-                # 3. Harde Bestellingen (Online / Vooraf besteld)
                 online_orders = int(future_orders_map.get((future_date, product_name), 0))
-                
-                # 4. TWIN ENGINE FORMULE:
-                # Totaal = (Gok voor de winkel) + (Harde zekerheid online)
                 final_qty = shop_qty_safe + online_orders
                 
                 total_predicted_week += final_qty
                 if i == 1: predicted_tomorrow = final_qty
 
-            # Trend (Gebaseerd op totale volume in de data)
             trend = "stabiel ➡️"
-            # Simpele logica: als weektotaal > 50 is het veel (kan je verfijnen)
             if total_predicted_week > 50: trend = "stijgend 📈"
             elif total_predicted_week < 10: trend = "dalend 📉"
 
@@ -154,7 +174,7 @@ def generate_smart_forecast(force_refresh=False):
 
         forecast_results.sort(key=lambda x: x['tomorrow'], reverse=True)
 
-        # --- B. INGREDIËNTEN BEREKENEN ---
+        # --- INGREDIËNTEN BEREKENEN ---
         ing_tomorrow = {} 
         ing_week = {}
 
@@ -178,7 +198,6 @@ def generate_smart_forecast(force_refresh=False):
                     if i_name in ing_week: ing_week[i_name]['amount'] += needed_week
                     else: ing_week[i_name] = {'amount': needed_week, 'unit': i_unit, 'stock': i_stock}
 
-        # Synchroniseren
         all_ingredients = set(ing_tomorrow.keys()) | set(ing_week.keys())
         for name in all_ingredients:
             if name not in ing_tomorrow:

@@ -16,13 +16,19 @@
         <div class="header-icons">
             {% if current_user %}
                 <div class="user-welcome">
-                    <a href="{{ url_for('main.my_orders') }}" class="user-name">
+                    <span class="user-name-text">
                         Hoi, {{ current_user.full_name.split(' ')[0] }}
-                    </a>
-                    <a href="{{ url_for('main.my_orders') }}" class="user-link">Bestellingen</a>
+                    </span>
+                    
+                    <div class="user-links-wrapper">
+                        <a href="{{ url_for('main.my_orders') }}" class="user-link">Mijn Bestellingen</a>
+                        <span class="nav-separator">|</span>
+                        <a href="{{ url_for('main.profile') }}" class="user-link">Profiel</a>
+                    </div>
                 </div>
-                <a href="{{ url_for('main.logout') }}" class="icon-link" title="Uitloggen" style="margin-left: 15px;">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="white" width="24" height="24">
+
+                <a href="{{ url_for('main.logout') }}" class="icon-link logout-icon" title="Uitloggen">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="white" width="26" height="26">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
                     </svg>
                 </a>

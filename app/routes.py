@@ -302,6 +302,40 @@ def logout():
     session.clear()
     return redirect(url_for('main.index'))
 
+@main.route('/profiel', methods=['GET', 'POST'])
+def profile():
+    if 'user_id' not in session: return redirect(url_for('main.login'))
+    
+    user = Profile.query.get(session['user_id'])
+    
+    if request.method == 'POST':
+        # 1. Gegevens Updaten
+        full_name = request.form.get('full_name')
+        phone = request.form.get('phone_number')
+        
+        if full_name: user.full_name = full_name
+        if phone: user.phone_number = phone
+        
+        # 2. Wachtwoord Wijzigen (Optioneel)
+        new_password = request.form.get('new_password')
+        if new_password and len(new_password) > 0:
+            if len(new_password) < 6:
+                flash('Nieuw wachtwoord moet minstens 6 tekens zijn.', 'danger')
+            else:
+                try:
+                    # Update wachtwoord direct in Supabase Auth
+                    supabase.auth.update_user({"password": new_password})
+                    flash('Profiel én wachtwoord gewijzigd!', 'success')
+                except Exception as e:
+                    flash(f'Wachtwoord kon niet gewijzigd worden: {e}', 'danger')
+        else:
+            flash('Profielgegevens opgeslagen.', 'success')
+            
+        db.session.commit()
+        return redirect(url_for('main.profile'))
+
+    return render_template('profile.html', user=user)
+
 
 # ==============================================================================
 #  3. WINKELWAGEN & CHECKOUT
@@ -506,32 +540,93 @@ def update_settings():
     s.email_address = request.form.get('email_address')
     s.address_text = request.form.get('address_text')
     
-    # 1. FOTO UPLOAD LOGICA (FIXED)
+    # 1. FOTO
     hero_file = request.files.get('hero_image_file')
     if hero_file and hero_file.filename != '':
-        # Gebruik de helper functie die we eerder maakten
         url = upload_image_to_supabase(hero_file)
         if url:
             s.hero_image_url = url
-            # Als er geen URL terugkomt (fout), behouden we de oude
 
-    # 2. SLUITINGSDAGEN LOGICA (FIXED)
-    # Flatpickr stuurt "2025-12-06, 2025-12-13" (komma gescheiden)
+    # 2. SPECIFIEKE DATUMS VERWERKEN
     raw_dates = request.form.get('closed_dates_input')
+    date_list = []
     if raw_dates:
-        # We maken er een nette lijst van: ["2025-12-06", "2025-12-13"]
         date_list = [d.strip() for d in raw_dates.split(',') if d.strip()]
         s.closed_dates_json = json.dumps(date_list)
     else:
-        s.closed_dates_json = json.dumps([]) # Leegmaken als veld leeg is
+        s.closed_dates_json = json.dumps([])
 
-    # ... (rest van openingsuren logica blijft hetzelfde) ...
+    # 3. CONFLICT CHECK 1: Specifieke Datums
+    total_conflicts = 0
+    conflict_msg = []
+
+    if date_list:
+        try:
+            date_objs = [datetime.strptime(d, '%Y-%m-%d').date() for d in date_list]
+            specific_conflicts = Order.query.filter(
+                Order.pickup_date.in_(date_objs),
+                Order.status.notin_(['picked_up', 'cancelled'])
+            ).count()
+            
+            if specific_conflicts > 0:
+                total_conflicts += specific_conflicts
+                conflict_msg.append(f"{specific_conflicts} op vakantiedagen")
+        except Exception as e:
+            print(f"Specific conflict check error: {e}")
+
+    # 4. WEEKROOSTER VERWERKEN & CHECK 2: Wekelijkse Dagen
+    new_schedule = {}
+    formatted_text = []
+    short_names = ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo']
+    closed_weekdays = [] # 0=Ma, 6=Zo
+
+    for i in range(7):
+        is_closed = request.form.get(f'day_{i}_closed') == 'on'
+        text_hours = request.form.get(f'day_{i}_text')
+        new_schedule[str(i)] = {'closed': is_closed, 'text': text_hours}
+        
+        status = "GESLOTEN" if is_closed else text_hours
+        formatted_text.append(f"{short_names[i]}: {status}")
+        
+        if is_closed:
+            closed_weekdays.append(i)
+
+    # Nu checken we of er orders zijn op deze gesloten weekdagen
+    if closed_weekdays:
+        try:
+            # Haal alle actieve orders in de toekomst op
+            future_orders = Order.query.filter(
+                Order.pickup_date >= date.today(),
+                Order.status.notin_(['picked_up', 'cancelled'])
+            ).all()
+            
+            weekly_conflicts = 0
+            for order in future_orders:
+                # order.pickup_date.weekday() geeft 0=Ma ... 6=Zo
+                # Als de dag van de order in onze lijst met gesloten dagen zit: BINGO
+                if order.pickup_date.weekday() in closed_weekdays:
+                    weekly_conflicts += 1
+            
+            if weekly_conflicts > 0:
+                total_conflicts += weekly_conflicts
+                conflict_msg.append(f"{weekly_conflicts} op vaste sluitingsdagen")
+
+        except Exception as e:
+            print(f"Weekly conflict check error: {e}")
+
+    s.weekly_schedule_json = json.dumps(new_schedule)
+    s.opening_hours = "\n".join(formatted_text)
     
-    # ... (opslaan) ...
     db.session.commit()
-    flash('Instellingen opgeslagen.', 'success')
+    
+    # 5. MELDINGEN TONEN
+    if total_conflicts > 0:
+        details = " & ".join(conflict_msg)
+        flash(f'⚠️ LET OP: Je rooster botst met bestaande bestellingen! ({details}). Contacteer deze klanten.', 'warning')
+    else:
+        flash('Instellingen opgeslagen.', 'success')
+        
     return redirect(url_for('main.admin_settings'))
-
 @main.route('/admin/settings/toggle_admin', methods=['POST'])
 def toggle_admin():
     if not check_admin(): return redirect(url_for('main.index'))
