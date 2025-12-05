@@ -105,5 +105,34 @@
             </tbody>
         </table>
     </div>
+    <div class="cart-container" style="margin-top: 40px; border: 2px solid #E63946;">
+        <h3 style="color: #E63946; margin-bottom: 15px;">🍞 Product Afschrijving (Verspilling)</h3>
+        <p style="color: #666; margin-bottom: 20px;">
+            Heb je producten gebakken die niet verkocht zijn? Geef het hier in. <br>
+            De ingrediënten worden dan automatisch van de voorraad afgetrokken.
+        </p>
+        
+        <form action="{{ url_for('main.process_product_waste') }}" method="POST" style="display: flex; gap: 20px; align-items: flex-end; flex-wrap: wrap;">
+            
+            <div style="flex: 1; min-width: 250px;">
+                <label class="form-label">Welk Product?</label>
+                <select name="product_id" class="form-input" required>
+                    <option value="" disabled selected>Kies een product...</option>
+                    {% for p in products %}
+                        <option value="{{ p.id }}">{{ p.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div style="width: 150px;">
+                <label class="form-label">Aantal Weggegooid</label>
+                <input type="number" name="quantity" min="1" placeholder="bv. 5" class="form-input" required>
+            </div>
+
+            <button type="submit" class="btn-bestel" style="background-color: #E63946; height: 42px; border: none;">
+                Verwerk Afschrijving
+            </button>
+        </form>
+    </div>
 </div>
 {% endblock %}

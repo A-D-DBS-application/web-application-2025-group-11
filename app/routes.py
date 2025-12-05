@@ -658,28 +658,30 @@ def toggle_admin():
 def admin_inventory():
     if not check_admin(): return redirect(url_for('main.index'))
     
-    # 1. Haal de huidige voorraad op
+    # 1. Ingrediënten ophalen
     ingredients = Ingredient.query.order_by(Ingredient.name).all()
     
-    # 2. Haal de AI voorspelling op
-    # FIX: We vangen nu precies 5 items op (matcht met jouw analytics.py)
+    # 2. Producten ophalen (voor het afschrijf-menu)
+    products = Product.query.order_by(Product.name).all()
+    
+    # 3. Forecast ophalen
     try:
-        _, _, shop_week, _, _ = generate_smart_forecast()
+        res = generate_smart_forecast()
+        shop_week = res[2]
         
-        # Debug print
-        print(f"DEBUG: Aantal voorspelde ingrediënten in Inventory: {len(shop_week) if shop_week else 0}")
-
         if shop_week:
             needs_map = {item['name']: item['amount'] for item in shop_week}
         else:
             needs_map = {}
             
     except Exception as e:
-        print(f"❌ Fout bij ophalen forecast in inventory: {e}")
+        print(f"Forecast error in inventory: {e}")
         needs_map = {}
 
-    return render_template('admin_inventory.html', ingredients=ingredients, needs_map=needs_map)
-
+    return render_template('admin_inventory.html', 
+                           ingredients=ingredients, 
+                           needs_map=needs_map, 
+                           products=products)
 @main.route('/admin/restock', methods=['POST'])
 def restock_ingredient():
     if not check_admin(): return redirect(url_for('main.index'))
@@ -700,6 +702,36 @@ def waste_ingredient():
         db.session.commit()
         flash(f'Afschrijving {ing.name} verwerkt.', 'warning')
     except: db.session.rollback()
+    return redirect(url_for('main.admin_inventory'))
+
+@main.route('/admin/inventory/product_waste', methods=['POST'])
+def process_product_waste():
+    if not check_admin(): return redirect(url_for('main.index'))
+    
+    try:
+        product_id = request.form.get('product_id')
+        quantity = int(request.form.get('quantity'))
+        
+        product = Product.query.get(product_id)
+        
+        if product and quantity > 0:
+            # Loop door het recept van dit product
+            for rule in product.ingredients:
+                # Bereken totaal verlies: (nodig per stuk) * (aantal weggegooid)
+                total_loss = rule.quantity_needed * Decimal(quantity)
+                
+                # Trek af van voorraad
+                rule.ingredient.stock_quantity -= total_loss
+            
+            db.session.commit()
+            flash(f'{quantity}x {product.name} verwerkt als derving. Voorraad is bijgewerkt.', 'warning')
+        else:
+            flash('Ongeldige invoer.', 'danger')
+            
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Fout bij verwerken: {e}', 'danger')
+        
     return redirect(url_for('main.admin_inventory'))
 
 @main.route('/admin/orders')
