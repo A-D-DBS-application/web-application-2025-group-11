@@ -99,7 +99,7 @@
     document.addEventListener('DOMContentLoaded', function() {
         const dateInput = document.getElementById('pickup_date');
         if (dateInput) {
-            // FIX: Data uitlezen via dataset ipv Jinja direct in JS
+            // Data veilig uitlezen uit attributen
             const minDate = dateInput.dataset.minDate;
             const closedDays = JSON.parse(dateInput.dataset.closedDays || '[]');
             const specificClosedDates = JSON.parse(dateInput.dataset.specificDates || '[]');
@@ -110,12 +110,9 @@
                 minDate: minDate,
                 
                 disable: [
-                    // 1. Wekelijkse sluitingsdagen
                     function(date) {
-                        // date.getDay() geeft 0 (zo) - 6 (za). closedDays bevat deze nummers.
                         return closedDays.includes(date.getDay());
                     },
-                    // 2. Specifieke datums (Vakanties) - Spread syntax ... voegt ze toe aan de array
                     ...specificClosedDates
                 ],
                 

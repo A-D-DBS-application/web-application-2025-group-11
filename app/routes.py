@@ -86,7 +86,7 @@ def product_img_filter(image_url):
     return url_for('static', filename='img/' + image_url)
 
 
-# --- CONTEXT PROCESSOR ---
+# --- CONTEXT PROCESSOR (Globale Variabelen) ---
 @main.context_processor
 def inject_global_vars():
     cart_count = 0
@@ -100,13 +100,17 @@ def inject_global_vars():
     settings = get_settings()
     current_year = datetime.now().year
     today_date = date.today()
+    
+    # HIER IS DE WIJZIGING: Categorieën globaal beschikbaar maken
+    categories = get_categories()
 
     return dict(
         cart_item_count=cart_count,
         current_user=user_profile,
         settings=settings,
         current_year=current_year,
-        today=today_date
+        today=today_date,
+        categories=categories
     )
 
 
@@ -116,6 +120,8 @@ def inject_global_vars():
 
 @main.route('/')
 def index():
+    # Categorieën worden nu via context processor geladen, 
+    # maar we halen ze hier ook op voor de filter logica
     categories_list = get_categories()
     
     category_filter = request.args.get('category')
@@ -126,7 +132,6 @@ def index():
     
     all_products = query.all()
     
-    # Filter op Seizoen
     visible_products = []
     today_str = date.today().strftime('%m-%d')
     
@@ -514,13 +519,16 @@ def admin_settings():
         schedule = {str(i): {'closed': False, 'text': '08:00 - 17:00'} for i in range(7)}
 
     days_names = ['Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag', 'Zondag']
+    
+    # Categorieën meegeven
+    categories = get_categories()
 
     return render_template('admin_settings.html', 
                            admins=admins, 
                            users=users, 
                            schedule=schedule, 
                            days_names=days_names,
-                           categories=get_categories())
+                           categories=categories)
 
 @main.route('/admin/settings/update', methods=['POST'])
 def update_settings():
@@ -688,7 +696,6 @@ def admin_inventory():
     products = Product.query.order_by(Product.name).all()
     
     try:
-        # We pakken index 2 (shop_week) uit de 5 return values van generate_smart_forecast
         res = generate_smart_forecast()
         shop_week = res[2]
         
@@ -775,6 +782,7 @@ def admin_orders():
     ).all()
     
     q_future = Order.query.filter(Order.pickup_date > today)
+    
     q_history = Order.query.filter(
         (Order.pickup_date < today) | 
         ((Order.pickup_date == today) & (Order.status.in_(['picked_up', 'cancelled'])))

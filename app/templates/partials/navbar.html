@@ -6,9 +6,9 @@
 
         <nav class="main-nav">
             <ul>
-                <li><a href="{{ url_for('main.index', category='brood') }}">Brood</a></li>
-                <li><a href="{{ url_for('main.index', category='pistoles') }}">Pistolets</a></li>
-                <li><a href="{{ url_for('main.index', category='koffiekoeken') }}">Koffiekoeken</a></li>
+                {% for cat in categories %}
+                    <li><a href="{{ url_for('main.index', category=cat) }}">{{ cat|capitalize }}</a></li>
+                {% endfor %}
                 <li><a href="{{ url_for('main.contact') }}">Contact</a></li>
             </ul>
         </nav>
@@ -19,7 +19,6 @@
                     <span class="user-name-text">
                         Hoi, {{ current_user.full_name.split(' ')[0] }}
                     </span>
-                    
                     <div class="user-links-wrapper">
                         <a href="{{ url_for('main.my_orders') }}" class="user-link">Mijn Bestellingen</a>
                         <span class="nav-separator">|</span>

@@ -77,11 +77,11 @@ h1, h2, h3, h4 { color: #593C28; }
     transform: scale(1.05);
 }
 
-/* --- HOOFDMENU (LINKS) --- */
 .main-nav ul {
     display: flex;
     gap: 35px;
     align-items: center;
+    flex-wrap: wrap; 
 }
 
 .main-nav a {
