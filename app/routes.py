@@ -45,74 +45,60 @@ def check_admin():
     user = Profile.query.get(session['user_id'])
     return user and user.is_admin
 
+def get_categories():
+    """Haalt categorieën uit DB of geeft defaults terug."""
+    settings = get_settings()
+    defaults = ["brood", "pistoles", "koffiekoeken"]
+    
+    if settings.product_categories_json:
+        try:
+            return json.loads(settings.product_categories_json)
+        except:
+            return defaults
+    return defaults
+
 def upload_image_to_supabase(file):
-    """
-    Slide 11: Upload afbeelding naar Supabase Storage Bucket i.p.v. lokaal.
-    """
+    """Upload afbeelding naar Supabase Storage Bucket."""
     if not file: return None
     try:
         filename = secure_filename(file.filename)
-        # Unieke naam maken
         file_path = f"{int(time.time())}_{filename}"
         file_content = file.read()
         
-        # Uploaden naar bucket 'product-images'
         bucket_name = "product-images"
         res = supabase.storage.from_(bucket_name).upload(
             path=file_path, 
             file=file_content, 
             file_options={"content-type": file.mimetype}
         )
-        
-        # Publieke URL ophalen
-        public_url_response = supabase.storage.from_(bucket_name).get_public_url(file_path)
-        
-        # Check even of de respons een string is of een object (hangt van versie af)
-        # Meestal is het direct de string, of zit het in een dict.
-        # Voor de zekerheid:
-        return public_url_response 
-        
+        return supabase.storage.from_(bucket_name).get_public_url(file_path)
     except Exception as e:
         print(f"❌ Upload Error: {e}")
         return None
 
-# --- TEMPLATE FILTERS (NIEUW) ---
+# --- TEMPLATE FILTERS ---
 @main.app_template_filter('product_img')
 def product_img_filter(image_url):
-    """
-    Zorgt ervoor dat templates zowel oude lokale plaatjes als nieuwe Supabase URL's snappen.
-    Gebruik in HTML: {{ product.image_url | product_img }}
-    """
     if not image_url: 
         return url_for('static', filename='img/logo.png')
-    
-    # Als het een volledige URL is (van Supabase), gebruik die direct
     if image_url.startswith('http'):
         return image_url
-        
-    # Anders is het een oud lokaal bestand
     return url_for('static', filename='img/' + image_url)
 
 
 # --- CONTEXT PROCESSOR ---
 @main.context_processor
 def inject_global_vars():
-    # 1. Winkelwagen teller
     cart_count = 0
     if 'cart' in session:
         cart_count = sum(session['cart'].values())
     
-    # 2. Huidige gebruiker
     user_profile = None
     if 'user_id' in session:
         user_profile = Profile.query.get(session['user_id'])
 
-    # 3. Settings
     settings = get_settings()
-    
-    # 4. Huidig jaar
     current_year = datetime.now().year
-
     today_date = date.today()
 
     return dict(
@@ -130,13 +116,35 @@ def inject_global_vars():
 
 @main.route('/')
 def index():
-    category_filter = request.args.get('category')
-    if category_filter and category_filter != 'alles':
-        products = Product.query.filter_by(is_available=True, category=category_filter).all()
-    else:
-        products = Product.query.filter_by(is_available=True).all()
+    categories_list = get_categories()
     
-    return render_template('index.html', products=products, current_category=category_filter)
+    category_filter = request.args.get('category')
+    query = Product.query.filter_by(is_available=True)
+    
+    if category_filter and category_filter != 'alles':
+        query = query.filter_by(category=category_filter)
+    
+    all_products = query.all()
+    
+    # Filter op Seizoen
+    visible_products = []
+    today_str = date.today().strftime('%m-%d')
+    
+    for p in all_products:
+        if not p.season_start or not p.season_end:
+            visible_products.append(p)
+        else:
+            start = p.season_start
+            end = p.season_end
+            if start <= end:
+                if start <= today_str <= end: visible_products.append(p)
+            else:
+                if today_str >= start or today_str <= end: visible_products.append(p)
+    
+    return render_template('index.html', 
+                           products=visible_products, 
+                           current_category=category_filter,
+                           categories=categories_list)
 
 @main.route('/contact')
 def contact():
@@ -151,35 +159,28 @@ def my_orders():
     user_id = session['user_id']
     page = request.args.get('page', 1, type=int)
     
-    # Filters ophalen
     f_date = request.args.get('filter_date')
     f_product = request.args.get('filter_product')
     f_price = request.args.get('filter_price')
     
-    # Basis query: Alleen orders van DEZE gebruiker
     query = Order.query.filter_by(user_id=user_id)
     
-    # 1. Datum Filter
     if f_date:
         try:
             date_obj = datetime.strptime(f_date, '%Y-%m-%d').date()
             query = query.filter(Order.pickup_date == date_obj)
         except ValueError: pass
 
-    # 2. Product Filter (Join nodig)
     if f_product:
         query = query.join(OrderItem).join(Product).filter(Product.name.ilike(f"%{f_product}%")).distinct()
 
-    # 3. Prijs Filter (Minimum bedrag)
     if f_price:
         try:
             query = query.filter(Order.total_price >= Decimal(f_price))
         except: pass
 
-    # Sorteren en Paginering
     pagination = query.order_by(Order.pickup_date.desc()).paginate(page=page, per_page=5, error_out=False)
     
-    # Huidige filters onthouden voor in de template
     current_filters = {
         'date': f_date or '',
         'product': f_product or '',
@@ -194,18 +195,14 @@ def cancel_my_order(order_id):
     
     order = Order.query.get_or_404(order_id)
     
-    # 1. Beveiliging: Is dit wel MIJN order?
     if str(order.user_id) != session['user_id']:
         flash("Je kunt alleen je eigen bestellingen annuleren.", "danger")
         return redirect(url_for('main.my_orders'))
     
-    # 2. Status Check: Is hij al opgehaald of geannuleerd?
     if order.status != 'pending':
         flash("Deze bestelling kan niet meer geannuleerd worden.", "warning")
         return redirect(url_for('main.my_orders'))
 
-    # 3. Datum Check: Is het nog minstens 2 dagen van tevoren?
-    # pickup_date (date) - today (date) = timedelta
     days_difference = (order.pickup_date - date.today()).days
     
     if days_difference >= 2:
@@ -217,7 +214,6 @@ def cancel_my_order(order_id):
         
     return redirect(url_for('main.my_orders'))
 
-# --- ICAL DOWNLOAD ---
 @main.route('/order/<int:order_id>/ical')
 def download_ical(order_id):
     order = Order.query.get_or_404(order_id)
@@ -248,6 +244,7 @@ def download_ical(order_id):
     response.headers["Content-Type"] = "text/calendar"
     
     return response
+
 
 # ==============================================================================
 #  2. AUTHENTICATIE
@@ -309,21 +306,18 @@ def profile():
     user = Profile.query.get(session['user_id'])
     
     if request.method == 'POST':
-        # 1. Gegevens Updaten
         full_name = request.form.get('full_name')
         phone = request.form.get('phone_number')
         
         if full_name: user.full_name = full_name
         if phone: user.phone_number = phone
         
-        # 2. Wachtwoord Wijzigen (Optioneel)
         new_password = request.form.get('new_password')
         if new_password and len(new_password) > 0:
             if len(new_password) < 6:
                 flash('Nieuw wachtwoord moet minstens 6 tekens zijn.', 'danger')
             else:
                 try:
-                    # Update wachtwoord direct in Supabase Auth
                     supabase.auth.update_user({"password": new_password})
                     flash('Profiel én wachtwoord gewijzigd!', 'success')
                 except Exception as e:
@@ -379,7 +373,6 @@ def view_cart():
     specific_closed_dates = []
     if settings.closed_dates_json:
         try:
-            # Laad de JSON lijst uit de database
             specific_closed_dates = json.loads(settings.closed_dates_json)
         except: pass
 
@@ -502,11 +495,11 @@ def admin_settings():
     
     settings = get_settings()
     
+    # Auto-Cleanup
     if settings.closed_dates_json:
         try:
             dates_list = json.loads(settings.closed_dates_json)
             today_str = date.today().strftime('%Y-%m-%d')
-            
             clean_dates = [d for d in dates_list if d >= today_str]
             
             if len(dates_list) != len(clean_dates):
@@ -522,7 +515,12 @@ def admin_settings():
 
     days_names = ['Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag', 'Zondag']
 
-    return render_template('admin_settings.html', admins=admins, users=users, schedule=schedule, days_names=days_names)
+    return render_template('admin_settings.html', 
+                           admins=admins, 
+                           users=users, 
+                           schedule=schedule, 
+                           days_names=days_names,
+                           categories=get_categories())
 
 @main.route('/admin/settings/update', methods=['POST'])
 def update_settings():
@@ -540,14 +538,12 @@ def update_settings():
     s.email_address = request.form.get('email_address')
     s.address_text = request.form.get('address_text')
     
-    # 1. FOTO
     hero_file = request.files.get('hero_image_file')
     if hero_file and hero_file.filename != '':
         url = upload_image_to_supabase(hero_file)
         if url:
             s.hero_image_url = url
 
-    # 2. SPECIFIEKE DATUMS VERWERKEN
     raw_dates = request.form.get('closed_dates_input')
     date_list = []
     if raw_dates:
@@ -556,7 +552,7 @@ def update_settings():
     else:
         s.closed_dates_json = json.dumps([])
 
-    # 3. CONFLICT CHECK 1: Specifieke Datums
+    # Conflict Check
     total_conflicts = 0
     conflict_msg = []
 
@@ -574,11 +570,10 @@ def update_settings():
         except Exception as e:
             print(f"Specific conflict check error: {e}")
 
-    # 4. WEEKROOSTER VERWERKEN & CHECK 2: Wekelijkse Dagen
     new_schedule = {}
     formatted_text = []
     short_names = ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo']
-    closed_weekdays = [] # 0=Ma, 6=Zo
+    closed_weekdays = [] 
 
     for i in range(7):
         is_closed = request.form.get(f'day_{i}_closed') == 'on'
@@ -591,10 +586,8 @@ def update_settings():
         if is_closed:
             closed_weekdays.append(i)
 
-    # Nu checken we of er orders zijn op deze gesloten weekdagen
     if closed_weekdays:
         try:
-            # Haal alle actieve orders in de toekomst op
             future_orders = Order.query.filter(
                 Order.pickup_date >= date.today(),
                 Order.status.notin_(['picked_up', 'cancelled'])
@@ -602,8 +595,6 @@ def update_settings():
             
             weekly_conflicts = 0
             for order in future_orders:
-                # order.pickup_date.weekday() geeft 0=Ma ... 6=Zo
-                # Als de dag van de order in onze lijst met gesloten dagen zit: BINGO
                 if order.pickup_date.weekday() in closed_weekdays:
                     weekly_conflicts += 1
             
@@ -619,7 +610,6 @@ def update_settings():
     
     db.session.commit()
     
-    # 5. MELDINGEN TONEN
     if total_conflicts > 0:
         details = " & ".join(conflict_msg)
         flash(f'⚠️ LET OP: Je rooster botst met bestaande bestellingen! ({details}). Contacteer deze klanten.', 'warning')
@@ -627,6 +617,7 @@ def update_settings():
         flash('Instellingen opgeslagen.', 'success')
         
     return redirect(url_for('main.admin_settings'))
+
 @main.route('/admin/settings/toggle_admin', methods=['POST'])
 def toggle_admin():
     if not check_admin(): return redirect(url_for('main.index'))
@@ -648,6 +639,41 @@ def toggle_admin():
     
     return redirect(url_for('main.admin_settings'))
 
+@main.route('/admin/settings/category/add', methods=['POST'])
+def add_category():
+    if not check_admin(): return redirect(url_for('main.index'))
+    
+    new_cat = request.form.get('new_category').strip().lower()
+    if new_cat:
+        s = get_settings()
+        current_cats = get_categories()
+        
+        if new_cat not in current_cats:
+            current_cats.append(new_cat)
+            s.product_categories_json = json.dumps(current_cats)
+            db.session.commit()
+            flash(f'Categorie "{new_cat}" toegevoegd.', 'success')
+        else:
+            flash('Deze categorie bestaat al.', 'warning')
+            
+    return redirect(url_for('main.admin_settings'))
+
+@main.route('/admin/settings/category/delete', methods=['POST'])
+def delete_category():
+    if not check_admin(): return redirect(url_for('main.index'))
+    
+    cat_to_remove = request.form.get('category_name')
+    s = get_settings()
+    current_cats = get_categories()
+    
+    if cat_to_remove in current_cats:
+        current_cats.remove(cat_to_remove)
+        s.product_categories_json = json.dumps(current_cats)
+        db.session.commit()
+        flash(f'Categorie "{cat_to_remove}" verwijderd.', 'success')
+        
+    return redirect(url_for('main.admin_settings'))
+
 
 # ==============================================================================
 #  5. ADMIN: VOORRAAD & ORDERS
@@ -658,14 +684,11 @@ def toggle_admin():
 def admin_inventory():
     if not check_admin(): return redirect(url_for('main.index'))
     
-    # 1. Ingrediënten ophalen
     ingredients = Ingredient.query.order_by(Ingredient.name).all()
-    
-    # 2. Producten ophalen (voor het afschrijf-menu)
     products = Product.query.order_by(Product.name).all()
     
-    # 3. Forecast ophalen
     try:
+        # We pakken index 2 (shop_week) uit de 5 return values van generate_smart_forecast
         res = generate_smart_forecast()
         shop_week = res[2]
         
@@ -682,6 +705,7 @@ def admin_inventory():
                            ingredients=ingredients, 
                            needs_map=needs_map, 
                            products=products)
+
 @main.route('/admin/restock', methods=['POST'])
 def restock_ingredient():
     if not check_admin(): return redirect(url_for('main.index'))
@@ -715,12 +739,8 @@ def process_product_waste():
         product = Product.query.get(product_id)
         
         if product and quantity > 0:
-            # Loop door het recept van dit product
             for rule in product.ingredients:
-                # Bereken totaal verlies: (nodig per stuk) * (aantal weggegooid)
                 total_loss = rule.quantity_needed * Decimal(quantity)
-                
-                # Trek af van voorraad
                 rule.ingredient.stock_quantity -= total_loss
             
             db.session.commit()
@@ -740,54 +760,42 @@ def admin_orders():
     
     today = date.today()
     
-    # 1. Paginering
     page_future = request.args.get('page_future', 1, type=int)
     page_history = request.args.get('page_history', 1, type=int)
     
-    # 2. Filters ophalen
     f_date = request.args.get('filter_date')
     f_client = request.args.get('filter_client')
     f_product = request.args.get('filter_product')
     f_status = request.args.get('filter_status')
     f_price_min = request.args.get('filter_price_min')
     
-    # --- BASIS QUERIES ---
-    # Orders van vandaag (Ongefilterd voor JS filtering)
     orders_today = Order.query.filter(
         Order.pickup_date == today, 
         Order.status.notin_(['picked_up', 'cancelled'])
     ).all()
     
     q_future = Order.query.filter(Order.pickup_date > today)
-    
     q_history = Order.query.filter(
         (Order.pickup_date < today) | 
         ((Order.pickup_date == today) & (Order.status.in_(['picked_up', 'cancelled'])))
     )
 
-    # --- FILTER FUNCTIE ---
     def apply_filters(query):
-        # Datum (Met FIX voor SQL Error)
         if f_date:
             try:
                 date_obj = datetime.strptime(f_date, '%Y-%m-%d').date()
                 query = query.filter(Order.pickup_date == date_obj)
-            except ValueError:
-                pass # Negeer ongeldige datum
+            except ValueError: pass
         
-        # Klant
         if f_client:
             query = query.join(Profile).filter(Profile.full_name.ilike(f"%{f_client}%"))
             
-        # Product
         if f_product:
             query = query.join(OrderItem).join(Product).filter(Product.name.ilike(f"%{f_product}%"))
             
-        # Status
         if f_status and f_status != 'all':
             query = query.filter(Order.status == f_status)
             
-        # Prijs
         if f_price_min:
             try:
                 query = query.filter(Order.total_price >= Decimal(f_price_min))
@@ -795,16 +803,13 @@ def admin_orders():
             
         return query
 
-    # Filters toepassen
     q_future = apply_filters(q_future)
     q_history = apply_filters(q_history)
 
-    # Distinct nodig als we joinen op producten (voorkomt dubbele orders)
     if f_product:
         q_future = q_future.distinct()
         q_history = q_history.distinct()
 
-    # Paginering
     pagination_future = q_future.order_by(Order.pickup_date.asc()).paginate(page=page_future, per_page=10, error_out=False)
     pagination_history = q_history.order_by(Order.pickup_date.desc()).paginate(page=page_history, per_page=10, error_out=False)
     
@@ -837,35 +842,39 @@ def update_order_status(order_id):
 def admin_products():
     if not check_admin(): return redirect(url_for('main.index'))
     products = Product.query.order_by(Product.category, Product.name).all()
-    
-    categories_list = ["brood", "pistoles", "koffiekoeken", "taart", "seizoensgebak"] 
+    categories_list = get_categories()
     return render_template('admin_products.html', products=products, categories=categories_list)
 
 @main.route('/admin/product/add', methods=['POST'])
 def add_product_manual():
     if not check_admin(): return redirect(url_for('main.index'))
     try:
-        # PUNT 11: Upload naar Supabase
         file = request.files.get('image_file')
-        
-        # Standaard of geüpload
-        image_url = 'logo.png' # Fallback
+        image_url = 'logo.png'
         if file and file.filename != '':
-            uploaded_url = upload_image_to_supabase(file)
-            if uploaded_url:
-                image_url = uploaded_url
+            url = upload_image_to_supabase(file)
+            if url: image_url = url
         
+        s_start = request.form.get('season_start')
+        s_end = request.form.get('season_end')
+        
+        if not s_start or not s_end:
+            s_start = None
+            s_end = None
+
         new_prod = Product(
             name=request.form.get('name'), 
             description=request.form.get('description'),
             price=Decimal(request.form.get('price')), 
             category=request.form.get('category'),
             allergens=request.form.get('allergens'),
-            image_url=image_url
+            image_url=image_url,
+            season_start=s_start,
+            season_end=s_end
         )
         db.session.add(new_prod)
         db.session.commit()
-        flash('Product toegevoegd (met afbeelding)!', 'success')
+        flash('Product toegevoegd.', 'success')
     except Exception as e:
         db.session.rollback()
         flash(f'Fout: {e}', 'danger')
@@ -879,6 +888,26 @@ def update_product_price():
         p.price = Decimal(request.form.get('price'))
         db.session.commit()
         flash('Prijs gewijzigd.', 'success')
+    except: pass
+    return redirect(url_for('main.admin_products'))
+
+@main.route('/admin/product/update_season', methods=['POST'])
+def update_product_season():
+    if not check_admin(): return redirect(url_for('main.index'))
+    try:
+        p = Product.query.get(request.form.get('product_id'))
+        s_start = request.form.get('season_start')
+        s_end = request.form.get('season_end')
+        
+        if s_start and s_end:
+            p.season_start = s_start
+            p.season_end = s_end
+        else:
+            p.season_start = None
+            p.season_end = None
+            
+        db.session.commit()
+        flash('Seizoen aangepast.', 'success')
     except: pass
     return redirect(url_for('main.admin_products'))
 
@@ -922,10 +951,9 @@ def upload_product_image():
         p = Product.query.get(request.form.get('product_id'))
         file = request.files.get('image_file')
         if file and file.filename != '':
-            # PUNT 11: Gebruik helper functie
-            uploaded_url = upload_image_to_supabase(file)
-            if uploaded_url:
-                p.image_url = uploaded_url
+            url = upload_image_to_supabase(file)
+            if url:
+                p.image_url = url
                 db.session.commit()
                 flash('Foto gewijzigd (Supabase).', 'success')
             else:

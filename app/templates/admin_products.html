@@ -18,6 +18,7 @@
     </div>
 
     <div style="display: flex; gap: 40px; flex-wrap: wrap;">
+        
         <div style="flex: 3; min-width: 500px;">
             <h3 style="color: #593C28; margin-bottom: 15px;">Huidig Assortiment</h3>
             <div class="cart-container table-responsive" style="padding: 0;">
@@ -47,17 +48,32 @@
                             </td>
                             <td style="padding: 15px;">
                                 <div style="font-size: 1.1em; font-weight: bold; color: #593C28; margin-bottom: 8px;">{{ product.name }}</div>
+                                
                                 <form action="{{ url_for('main.update_product_category') }}" method="POST" style="margin-bottom: 8px;">
                                     <input type="hidden" name="product_id" value="{{ product.id }}">
-                                    <select name="category" onchange="this.form.submit()" style="padding: 4px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+                                    <select name="category" onchange="this.form.submit()" class="form-input" style="padding: 4px; font-size: 0.9em;">
                                         {% for cat in categories %}
                                             <option value="{{ cat }}" {% if product.category == cat %}selected{% endif %}>{{ cat|capitalize }}</option>
                                         {% endfor %}
                                     </select>
                                 </form>
+
+                                <form action="{{ url_for('main.update_product_season') }}" method="POST" style="margin-bottom: 8px; background:#f9f9f9; padding:5px; border-radius:4px; border: 1px solid #eee;">
+                                    <input type="hidden" name="product_id" value="{{ product.id }}">
+                                    <div style="display:flex; gap:5px; align-items:center; margin-bottom:2px;">
+                                        <small style="width:30px; color:#666;">Van:</small>
+                                        <input type="text" name="season_start" value="{{ product.season_start or '' }}" placeholder="MM-DD" style="width: 60px; font-size:0.8em; padding:2px; border:1px solid #ccc; border-radius:3px;">
+                                    </div>
+                                    <div style="display:flex; gap:5px; align-items:center;">
+                                        <small style="width:30px; color:#666;">Tot:</small>
+                                        <input type="text" name="season_end" value="{{ product.season_end or '' }}" placeholder="MM-DD" style="width: 60px; font-size:0.8em; padding:2px; border:1px solid #ccc; border-radius:3px;">
+                                        <button type="submit" title="Seizoen Opslaan" style="border:none; background:none; cursor:pointer;">💾</button>
+                                    </div>
+                                </form>
+
                                 <form action="{{ url_for('main.update_product_allergens') }}" method="POST" style="display: flex; gap: 5px;">
                                     <input type="hidden" name="product_id" value="{{ product.id }}">
-                                    <input type="text" name="allergens" value="{{ product.allergens or '' }}" placeholder="Allergenen" style="width: 100%; padding: 4px; border: 1px solid #ccc; border-radius: 4px;">
+                                    <input type="text" name="allergens" value="{{ product.allergens or '' }}" placeholder="Allergenen" class="form-input" style="padding: 4px; font-size: 0.9em;">
                                     <button type="submit" style="background:none; border:none; cursor:pointer;">💾</button>
                                 </form>
                             </td>
@@ -65,7 +81,7 @@
                                 <form action="{{ url_for('main.update_product_description') }}" method="POST" style="height: 100%;">
                                     <input type="hidden" name="product_id" value="{{ product.id }}">
                                     <div style="display: flex; gap: 5px; height: 100%;">
-                                        <textarea name="description" style="width: 100%; height: 100px; padding: 8px; border: 1px solid #eee; border-radius: 4px; resize: none;">{{ product.description }}</textarea>
+                                        <textarea name="description" class="form-input" style="height: 120px; resize: none; font-size: 0.9em;">{{ product.description }}</textarea>
                                         <button type="submit" style="background:none; border:none; cursor:pointer; align-self: flex-start;">💾</button>
                                     </div>
                                 </form>
@@ -74,7 +90,7 @@
                                 <form action="{{ url_for('main.update_product_price') }}" method="POST" style="display: flex; align-items: center; gap: 5px; margin-bottom: 15px;">
                                     <input type="hidden" name="product_id" value="{{ product.id }}">
                                     <span style="font-weight: bold;">€</span>
-                                    <input type="number" name="price" value="{{ product.price }}" step="0.01" style="width: 70px; padding: 5px; border: 1px solid #ccc; border-radius: 4px;">
+                                    <input type="number" name="price" value="{{ product.price }}" step="0.01" class="form-input" style="width: 70px; padding: 5px;">
                                     <button type="submit" style="background:none; border:none; cursor:pointer;">💾</button>
                                 </form>
                                 <hr style="border: 0; border-top: 1px solid #eee; margin-bottom: 15px;">
@@ -97,31 +113,44 @@
                 <h3 style="color: #593C28; margin-bottom: 15px;">+ Nieuw Product</h3>
                 <form action="{{ url_for('main.add_product_manual') }}" method="POST" enctype="multipart/form-data">
                     <div style="margin-bottom: 10px;">
-                        <label>Naam</label>
-                        <input type="text" name="name" required style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                        <label class="form-label">Naam</label>
+                        <input type="text" name="name" required class="form-input">
                     </div>
                     <div style="margin-bottom: 10px;">
-                        <label>Prijs</label>
-                        <input type="number" step="0.01" name="price" required style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                        <label class="form-label">Prijs</label>
+                        <input type="number" step="0.01" name="price" required class="form-input">
                     </div>
                     <div style="margin-bottom: 10px;">
-                        <label>Categorie</label>
-                        <select name="category" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                        <label class="form-label">Categorie</label>
+                        <select name="category" class="form-input">
                             {% for cat in categories %}
                                 <option value="{{ cat }}">{{ cat|capitalize }}</option>
                             {% endfor %}
                         </select>
                     </div>
+                    
+                    <div style="margin-bottom: 10px; display: flex; gap: 10px;">
+                        <div style="flex:1;">
+                            <label class="form-label" style="font-size:0.9em;">Seizoen Start (MM-DD)</label>
+                            <input type="text" name="season_start" placeholder="bv. 11-01" class="form-input" pattern="\d{2}-\d{2}">
+                        </div>
+                        <div style="flex:1;">
+                            <label class="form-label" style="font-size:0.9em;">Seizoen Eind (MM-DD)</label>
+                            <input type="text" name="season_end" placeholder="bv. 12-06" class="form-input" pattern="\d{2}-\d{2}">
+                        </div>
+                    </div>
+                    <small style="display:block; margin-bottom:15px; color:#999;">Laat leeg voor altijd beschikbaar.</small>
+
                     <div style="margin-bottom: 10px;">
-                        <label>Beschrijving</label>
-                        <textarea name="description" rows="2" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;"></textarea>
+                        <label class="form-label">Beschrijving</label>
+                        <textarea name="description" rows="2" class="form-input"></textarea>
                     </div>
                     <div style="margin-bottom: 10px;">
-                        <label>Allergenen</label>
-                        <input type="text" name="allergens" placeholder="bv. Gluten" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                        <label class="form-label">Allergenen</label>
+                        <input type="text" name="allergens" placeholder="bv. Gluten" class="form-input">
                     </div>
                     <div style="margin-bottom: 15px;">
-                        <label>Foto uploaden</label>
+                        <label class="form-label">Foto uploaden</label>
                         <input type="file" name="image_file" accept="image/*" style="width: 100%; font-size: 0.9em;">
                     </div>
                     <button type="submit" class="btn-admin-nav" style="width: 100%; justify-content: center;">Toevoegen</button>

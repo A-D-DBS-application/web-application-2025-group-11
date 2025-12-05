@@ -21,6 +21,8 @@ class Product(db.Model):
     allergens = db.Column(db.Text) # Handmatige allergenen (fallback)
     is_available = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime(timezone=True), server_default=func.now())
+    season_start = db.Column(db.Text) 
+    season_end = db.Column(db.Text)
     
     # --- Relaties ---
     ingredients = db.relationship('ProductIngredient', backref='product', lazy=True, cascade='all, delete-orphan')
@@ -163,3 +165,4 @@ class AppSettings(db.Model):
     opening_hours = db.Column(db.Text) #mag eig weg, maar als fallback voor nu laten staan
     weekly_schedule_json = db.Column(db.Text)
     closed_dates_json = db.Column(db.Text)
+    product_categories_json = db.Column(db.Text)

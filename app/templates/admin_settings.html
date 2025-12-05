@@ -6,7 +6,7 @@
     <div class="admin-header-container">
         <div class="admin-header-text">
             <h1>Instellingen</h1>
-            <p>Beheer algemene gegevens, openingstijden en beheerders.</p>
+            <p>Beheer algemene gegevens, openingstijden en de website.</p>
         </div>
         
         <div style="display: flex; gap: 8px;">
@@ -22,7 +22,7 @@
         
         <div style="flex: 2; min-width: 400px;">
             <div class="cart-container">
-                <h3 style="color: #593C28; margin-bottom: 20px;">🏠 Website Gegevens</h3>
+                <h3 style="color: #593C28; margin-bottom: 20px;">🏠 Website Instellingen</h3>
                 
                 <form action="{{ url_for('main.update_settings') }}" method="POST" enctype="multipart/form-data">
                     
@@ -33,12 +33,12 @@
                     
                     <div class="form-group">
                         <label class="form-label">Welkomsttekst (Kort)</label>
-                        <textarea name="welcome_text" rows="3" class="form-input">{{ settings.welcome_text }}</textarea>
+                        <textarea name="welcome_text" rows="3" class="form-input" style="font-family: inherit;">{{ settings.welcome_text }}</textarea>
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Introductie Paragraaf</label>
-                        <textarea name="intro_text" rows="6" class="form-input">{{ settings.intro_text }}</textarea>
+                        <textarea name="intro_text" rows="6" class="form-input" style="font-family: inherit;">{{ settings.intro_text }}</textarea>
                     </div>
 
                     <div class="form-group">
@@ -82,11 +82,12 @@
                     <h4 class="section-title">🕒 Openingsuren</h4>
                     
                     <div class="form-group" style="margin-bottom: 20px;">
-                        <label class="form-label">Uitzonderlijke Sluitingsdagen (Vakantie/Feestdagen)</label>
+                        <label class="form-label">Uitzonderlijke Sluitingsdagen</label>
                         <input type="text" id="closed_dates_input" name="closed_dates_input" 
                                placeholder="Klik om datums te kiezen..." 
                                class="form-input"
                                value="{% if settings.closed_dates_json %}{{ settings.closed_dates_json|replace('[','',)|replace(']','',)|replace('"','') }}{% endif %}">
+                        <small style="color: #666;">Selecteer vakantiedagen of feestdagen.</small>
                     </div>
 
                     <p style="font-size: 0.9em; color: #666; margin-bottom: 10px;">
@@ -121,17 +122,40 @@
                     </div>
 
                     <button type="submit" class="btn-bestel" style="margin-top: 25px; width: 100%; padding: 15px; height: auto; font-size: 1.1rem;">
-                        OPSLAAN
+                        INSTELLINGEN OPSLAAN
                     </button>
                 </form>
             </div>
         </div>
 
-        <div style="flex: 1; min-width: 300px;">
+        <div style="flex: 1; min-width: 300px; display: flex; flex-direction: column; gap: 30px;">
+            
+            <div class="cart-container" style="background-color: #F1F8E9; border: 1px solid #C8E6C9;">
+                <h3 style="color: #2E7D32; margin-bottom: 15px;">📂 Categorieën</h3>
+                <p style="font-size: 0.9em; color: #555; margin-bottom: 15px;">Beheer hier de productgroepen (filters op de homepagina).</p>
+
+                <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px;">
+                    {% for cat in categories %}
+                        <div style="background: white; padding: 6px 12px; border-radius: 20px; display: flex; align-items: center; gap: 8px; font-weight: bold; font-size: 0.9em; border: 1px solid #C8E6C9;">
+                            {{ cat|capitalize }}
+                            
+                            <form action="{{ url_for('main.delete_category') }}" method="POST" style="margin:0; display:flex;">
+                                <input type="hidden" name="category_name" value="{{ cat }}">
+                                <button type="submit" style="background: none; border: none; color: #E63946; font-weight: bold; cursor: pointer; padding: 0; line-height: 1;" title="Verwijder" onclick="return confirm('Categorie verwijderen?');">×</button>
+                            </form>
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <form action="{{ url_for('main.add_category') }}" method="POST" style="display: flex; gap: 10px;">
+                    <input type="text" name="new_category" placeholder="Nieuwe categorie..." class="form-input" required style="padding: 8px;">
+                    <button type="submit" class="btn-admin-nav" style="background: #4CAF50; border-color: #4CAF50; color: white;">+</button>
+                </form>
+            </div>
+
             <div class="cart-container" style="background-color: #fffaf0; border: 1px solid #e0d6cc;">
                 <h3 style="color: #593C28; margin-bottom: 20px;">👮 Beheerders</h3>
                 
-                <p style="margin-bottom: 10px;"><strong>Huidige Admins:</strong></p>
                 <ul style="list-style: none; padding: 0; margin-bottom: 20px;">
                     {% for admin in admins %}
                     <li style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee;">
@@ -145,9 +169,9 @@
                     {% endfor %}
                 </ul>
 
-                <hr class="separator">
+                <hr class="separator" style="border-top: 1px solid #ddd;">
 
-                <p style="margin-bottom: 10px;"><strong>Nieuwe Admin Toevoegen:</strong></p>
+                <p style="margin-bottom: 10px; font-size: 0.9em; font-weight: bold;">Nieuwe Admin Toevoegen:</p>
                 <form action="{{ url_for('main.toggle_admin') }}" method="POST">
                     <input type="hidden" name="action" value="add">
                     <div style="margin-bottom: 10px;">
@@ -167,7 +191,7 @@
 </div>
 
 <script>
-    // Toggle input velden grijs/wit bij checkbox
+    // Toggle grijs/wit bij openingsuren
     function toggleInput(el) {
         var dayIndex = el.dataset.index;
         var input = document.getElementById('text_' + dayIndex);
@@ -179,7 +203,7 @@
         }
     }
 
-    // Flatpickr initialiseren voor de specifieke datums
+    // Flatpickr voor de vakantiedagen
     document.addEventListener('DOMContentLoaded', function() {
         flatpickr("#closed_dates_input", {
             mode: "multiple",

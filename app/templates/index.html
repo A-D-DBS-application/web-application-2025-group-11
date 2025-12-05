@@ -27,20 +27,15 @@
     <div class="filter-buttons">
         <a href="{{ url_for('main.index') }}" 
            class="filter-btn {{ 'active' if not current_category or current_category == 'alles' else '' }}">
-           alles
+           Alles
         </a>
-        <a href="{{ url_for('main.index', category='brood') }}" 
-           class="filter-btn {{ 'active' if current_category == 'brood' else '' }}">
-           brood
-        </a>
-        <a href="{{ url_for('main.index', category='pistoles') }}" 
-           class="filter-btn {{ 'active' if current_category == 'pistoles' else '' }}">
-           pistolets
-        </a>
-        <a href="{{ url_for('main.index', category='koffiekoeken') }}" 
-           class="filter-btn {{ 'active' if current_category == 'koffiekoeken' else '' }}">
-           koffiekoeken
-        </a>
+        
+        {% for cat in categories %}
+            <a href="{{ url_for('main.index', category=cat) }}" 
+               class="filter-btn {{ 'active' if current_category == cat else '' }}">
+               {{ cat|capitalize }}
+            </a>
+        {% endfor %}
     </div>
 </section>
 
