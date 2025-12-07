@@ -823,8 +823,7 @@ def admin_orders():
     f_price_min = request.args.get('filter_price_min')
     
     orders_today = Order.query.filter(
-        Order.pickup_date == today, 
-        Order.status.notin_(['picked_up', 'cancelled'])
+        Order.pickup_date == today
     ).all()
     
     q_future = Order.query.filter(Order.pickup_date > today)

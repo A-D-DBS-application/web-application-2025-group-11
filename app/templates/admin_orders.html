@@ -28,6 +28,7 @@
                     <button class="filter-action-btn active" onclick="setFilter('all', this)">Alles</button>
                     <button class="filter-action-btn" onclick="setFilter('pending', this)">Nog Te Doen</button>
                     <button class="filter-action-btn" onclick="setFilter('ready', this)">Staat Klaar</button>
+                    <button class="filter-action-btn" onclick="setFilter('completed', this)">Afgerond</button>
                 </div>
             </div>
             
@@ -324,11 +325,29 @@
         const input = document.getElementById('searchInput');
         const filterText = input.value.toLowerCase();
         const rows = document.querySelectorAll('.order-row');
+        
         rows.forEach(row => {
-            let statusMatch = (currentStatusFilter === 'all') || row.classList.contains('status-' + currentStatusFilter);
+            let statusMatch = false;
+            if (currentStatusFilter === 'completed') {
+                if (row.classList.contains('status-picked_up') || row.classList.contains('status-cancelled')) {
+                    statusMatch = true;
+                }
+            } 
+            
+            else {
+                if (currentStatusFilter === 'all' || row.classList.contains('status-' + currentStatusFilter)) {
+                    statusMatch = true;
+                }
+            }
+            
             let searchContent = row.getAttribute('data-search') || "";
             let textMatch = searchContent.includes(filterText);
-            if (statusMatch && textMatch) { row.style.display = ''; } else { row.style.display = 'none'; }
+
+            if (statusMatch && textMatch) { 
+                row.style.display = ''; 
+            } else { 
+                row.style.display = 'none'; 
+            }
         });
     }
 
