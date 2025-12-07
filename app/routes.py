@@ -130,7 +130,7 @@ def index():
     if category_filter and category_filter != 'alles':
         query = query.filter_by(category=category_filter)
     
-    all_products = query.all()
+    all_products = query.order_by(Product.name).all()
     
     visible_products = []
     today_str = date.today().strftime('%m-%d')
@@ -895,7 +895,7 @@ def update_order_status(order_id):
 @main.route('/admin/products')
 def admin_products():
     if not check_admin(): return redirect(url_for('main.index'))
-    products = Product.query.order_by(Product.category, Product.name).all()
+    products = Product.query.order_by(Product.name).all()
     categories_list = get_categories()
     return render_template('admin_products.html', products=products, categories=categories_list)
 
