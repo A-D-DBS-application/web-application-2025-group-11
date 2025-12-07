@@ -761,6 +761,52 @@ def process_product_waste():
         
     return redirect(url_for('main.admin_inventory'))
 
+@main.route('/admin/inventory/missed_sale', methods=['POST'])
+def register_missed_sale():
+    if not check_admin(): return redirect(url_for('main.index'))
+    
+    try:
+        product_id = request.form.get('product_id')
+        quantity = int(request.form.get('quantity'))
+        shop_profile = Profile.query.filter(Profile.full_name.ilike("%Winkel%")).first()
+        
+        if not shop_profile:
+             flash("Profiel 'Winkelverkoop' niet gevonden.", "danger")
+             return redirect(url_for('main.admin_inventory'))
+
+        if product_id and quantity > 0:
+            # Maak een order aan die 'Cancelled' is
+            # Hierdoor telt hij NIET mee voor de omzet, maar WEL voor de AI (Vraag)
+            order = Order(
+                user_id=shop_profile.id,
+                status='cancelled', # Cruciaal!
+                pickup_date=date.today(),
+                total_price=0,
+                remarks="Gemiste Verkoop (Uitverkocht)"
+            )
+            db.session.add(order)
+            db.session.flush()
+            
+            # Voeg items toe
+            product = Product.query.get(product_id)
+            db.session.add(OrderItem(
+                order_id=order.id,
+                product_id=product.id,
+                quantity=quantity,
+                unit_price_at_order=product.price
+            ))
+            
+            db.session.commit()
+            flash(f'Geregistreerd: {quantity}x {product.name} als gemiste verkoop. De AI neemt dit mee!', 'info')
+        else:
+            flash('Ongeldige invoer.', 'danger')
+            
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Fout: {e}', 'danger')
+        
+    return redirect(url_for('main.admin_inventory'))
+
 @main.route('/admin/orders')
 def admin_orders():
     if not check_admin(): return redirect(url_for('main.index'))

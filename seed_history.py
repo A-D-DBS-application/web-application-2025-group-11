@@ -74,7 +74,7 @@ def ensure_shop_profile():
 
 def run_history_seeder():
     with app.app_context():
-        print(f"--- 🚀 STARTEN MET SNELLE HISTORIE ({DAYS_BACK} dagen) ---")
+        print(f"--- 🚀 STARTEN MET REALISTISCHE DATUMS ({DAYS_BACK} dagen) ---")
         
         shop_profile = ensure_shop_profile()
         if not shop_profile: return
@@ -85,7 +85,6 @@ def run_history_seeder():
 
         orders_created = 0
         
-        # We verzamelen data in batches om netwerkverkeer te minimaliseren
         for i in range(-DAYS_BACK, DAYS_FORWARD):
             pickup_date_obj = datetime.now() + timedelta(days=i) 
             d_date = pickup_date_obj.date()
@@ -107,21 +106,42 @@ def run_history_seeder():
             if not daily_products: continue
 
             for _ in range(total_today):
-                # Klant & Status bepalen
+                # 1. Bepaal Klant & Type
                 if i > 0: 
-                    is_online = True; customer = random.choice(real_users)
-                    remarks = "Online Bestelling"; order_status = 'pending'
+                    # Toekomst: Altijd Online
+                    is_online = True
+                    customer = random.choice(real_users)
+                    remarks = "Online Bestelling"
+                    order_status = 'pending'
                 else: 
+                    # Verleden: Mix van Winkel (80%) en Online (20%)
                     if random.random() < 0.2:
-                        is_online = True; customer = random.choice(real_users); remarks = "Online"
+                        is_online = True
+                        customer = random.choice(real_users)
+                        remarks = "Online"
                     else:
-                        is_online = False; customer = shop_profile; remarks = "Winkelverkoop"
+                        is_online = False
+                        customer = shop_profile
+                        remarks = "Winkelverkoop"
                     
                     order_status = 'cancelled' if random.random() < CANCEL_RATE else 'picked_up'
 
-                order_placed_date = pickup_date_obj.replace(hour=random.randint(7, 18), minute=random.randint(0, 59))
+                # 2. Bepaal Besteldatum (DE FIX)
+                if is_online:
+                    # Online bestel je 1 tot 5 dagen van tevoren
+                    days_before = random.randint(1, 5)
+                    order_placed_date = pickup_date_obj - timedelta(days=days_before)
+                else:
+                    # Winkelverkoop is op de dag zelf
+                    order_placed_date = pickup_date_obj
+
+                # Willekeurig tijdstip op de besteldag (tussen 08:00 en 22:00)
+                order_placed_date = order_placed_date.replace(
+                    hour=random.randint(8, 22), 
+                    minute=random.randint(0, 59)
+                )
                 
-                # OPTIMISATIE: Order object maken
+                # 3. Maak Order
                 order = Order(
                     user_id=customer.id,
                     status=order_status,
@@ -132,14 +152,12 @@ def run_history_seeder():
                     remarks=remarks
                 )
                 
-                # Producten kiezen
+                # 4. Producten kiezen
                 num_items = random.choices([1, 2, 3, 4, 5, 6], weights=[30, 30, 20, 10, 5, 5], k=1)[0]
                 chosen_products = random.choices(daily_products, weights=daily_weights, k=num_items)
                 
                 order_total = Decimal(0)
                 
-                # OPTIMISATIE: Items direct koppelen aan de order in het geheugen
-                # (Zonder eerst naar de database te gaan voor een ID)
                 for prod in chosen_products:
                     if prod.category == 'pistoles': qty = random.choice([4, 6, 8, 10])
                     elif prod.category == 'koffiekoeken': qty = random.choice([2, 4, 6])
@@ -148,30 +166,23 @@ def run_history_seeder():
                     item_total = prod.price * Decimal(qty)
                     order_total += item_total
                     
-                    # Hier gebruiken we de relatie 'items' in plaats van los toevoegen
-                    item = OrderItem(
-                        product=prod, # We geven het hele product object mee
-                        quantity=qty, 
-                        unit_price_at_order=prod.price
-                    )
+                    item = OrderItem(product=prod, quantity=qty, unit_price_at_order=prod.price)
                     order.items.append(item)
                 
                 order.total_price = order_total
-                db.session.add(order) # Zet in de wachtrij
+                db.session.add(order)
                 orders_created += 1
             
-            # Alleen elke 30 dagen echt naar de database sturen (Bulk Commit)
             if i % 30 == 0: 
                 try:
                     db.session.commit()
-                    print("█", end="", flush=True) # Blokje ipv puntje
+                    print("█", end="", flush=True)
                 except Exception as e:
                     db.session.rollback()
                     print(f"Fout: {e}")
 
-        # Laatste restje opslaan
         db.session.commit()
-        print(f"\n\n--- ✅ KLAAR! {orders_created} orders gegenereerd. ---")
+        print(f"\n\n--- ✅ KLAAR! {orders_created} orders met realistische datums gegenereerd. ---")
 
 if __name__ == "__main__":
     run_history_seeder()

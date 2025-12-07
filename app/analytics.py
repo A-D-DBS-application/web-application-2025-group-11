@@ -1,11 +1,11 @@
 import pandas as pd
 import numpy as np
 import holidays
-import json  # NIEUW: Nodig om settings te lezen
+import json
 from datetime import datetime, date, timedelta
 from decimal import Decimal
 from sklearn.ensemble import RandomForestRegressor
-from .models import db, Order, OrderItem, Product, Ingredient, AppSettings # NIEUW: AppSettings toegevoegd
+from .models import db, Product, AppSettings
 from sqlalchemy import text
 
 # --- CACHE OPSLAG ---
@@ -28,7 +28,6 @@ def is_special_day(d):
 def generate_smart_forecast(force_refresh=False):
     global _cached_forecast, _last_calculation_time
     
-    # 1. CHECK CACHE
     if not force_refresh and _cached_forecast and _last_calculation_time:
         if datetime.now() - _last_calculation_time < timedelta(minutes=60):
             print("--- ⚡️ CACHE GEBRUIKT ---")
@@ -36,71 +35,83 @@ def generate_smart_forecast(force_refresh=False):
 
     print("--- 🧠 AI TWIN-ENGINE STARTEN ---")
 
-    # --- NIEUW: SLUITINGSDAGEN OPHALEN ---
-    # We halen nu eerst de settings op om te weten wanneer we dicht zijn
+    # 1. SETTINGS
     settings = AppSettings.query.first()
     closed_dates_list = []
-    closed_weekdays = [] # 0=Ma, 6=Zo
+    closed_weekdays = [] 
 
     if settings:
-        # Specifieke datums (Vakanties)
         if settings.closed_dates_json:
-            try:
-                closed_dates_list = json.loads(settings.closed_dates_json)
+            try: closed_dates_list = json.loads(settings.closed_dates_json)
             except: pass
-        
-        # Wekelijks rooster
         if settings.weekly_schedule_json:
             try:
                 schedule = json.loads(settings.weekly_schedule_json)
                 for day_idx, data in schedule.items():
-                    if data.get('closed'):
-                        closed_weekdays.append(int(day_idx))
+                    if data.get('closed'): closed_weekdays.append(int(day_idx))
             except: pass
-    # --------------------------------------
 
-    # 2. DATA OPHALEN (Historie van 1 jaar)
+    # 2. HISTORIE OPHALEN
     sql = text("""
         SELECT orders.pickup_date, orders.remarks, products.name, order_items.quantity
         FROM order_items
         JOIN orders ON order_items.order_id = orders.id
         JOIN products ON order_items.product_id = products.id
-        WHERE orders.status != 'cancelled'
-        AND orders.pickup_date >= CURRENT_DATE - INTERVAL '370 days'
-        AND orders.pickup_date < CURRENT_DATE
+        WHERE orders.pickup_date >= :start_date
+        AND orders.pickup_date < :today
     """)
+    
+    today_date = date.today()
+    params = {
+        'start_date': today_date - timedelta(days=370),
+        'today': today_date
+    }
 
     try:
         with db.engine.connect() as conn:
-            df = pd.read_sql(sql, conn)
+            df = pd.read_sql(sql, conn, params=params)
             
-        if df.empty:
-            return [], [], [], date.today(), date.today()
+        has_history = not df.empty
+        avg_4week_sales = {}
+        recent_actuals = {} 
+        daily_shop_sales = pd.DataFrame()
 
-        df['pickup_date'] = pd.to_datetime(df['pickup_date'])
-        
-        # --- FEATURE ENGINEERING ---
-        df['weekday'] = df['pickup_date'].dt.dayofweek
-        df['date_ordinal'] = df['pickup_date'].apply(lambda x: x.toordinal())
-        df['is_holiday'] = df['pickup_date'].apply(is_special_day)
+        if has_history:
+            df['pickup_date'] = pd.to_datetime(df['pickup_date'])
+            
+            # Trend Referentie (4 weken)
+            cutoff_4weeks = pd.Timestamp(today_date) - pd.Timedelta(days=28)
+            last_4weeks_df = df[df['pickup_date'] >= cutoff_4weeks]
+            sales_4weeks = last_4weeks_df.groupby('name')['quantity'].sum()
+            avg_4week_sales = sales_4weeks / 4
 
-        # --- SPLITSEN: WINKEL vs ONLINE ---
-        df_shop = df[df['remarks'] == 'Winkelverkoop'].copy()
-        daily_shop_sales = df_shop.groupby(['date_ordinal', 'weekday', 'is_holiday', 'name'])['quantity'].sum().reset_index()
+            # Reality Check (1 week)
+            cutoff_1week = pd.Timestamp(today_date) - pd.Timedelta(days=7)
+            last_week_df = df[df['pickup_date'] >= cutoff_1week]
+            recent_actuals = last_week_df.groupby('name')['quantity'].sum()
+            
+            # Feature Engineering
+            df['weekday'] = df['pickup_date'].dt.dayofweek
+            df['date_ordinal'] = df['pickup_date'].apply(lambda x: x.toordinal())
+            df['is_holiday'] = df['pickup_date'].apply(is_special_day)
 
-        # --- HARDE BESTELLINGEN (TOEKOMST) ---
+            df_shop = df[df['remarks'] == 'Winkelverkoop'].copy()
+            if not df_shop.empty:
+                daily_shop_sales = df_shop.groupby(['date_ordinal', 'weekday', 'is_holiday', 'name'])['quantity'].sum().reset_index()
+
+        # 3. TOEKOMST
         future_sql = text("""
             SELECT orders.pickup_date, products.name, SUM(order_items.quantity) as total_ordered
             FROM order_items
             JOIN orders ON order_items.order_id = orders.id
             JOIN products ON order_items.product_id = products.id
-            WHERE orders.status != 'cancelled'
-            AND orders.pickup_date > CURRENT_DATE
+            WHERE orders.status != 'cancelled' 
+            AND orders.pickup_date > :today
             GROUP BY orders.pickup_date, products.name
         """)
         
         with db.engine.connect() as conn:
-            df_future = pd.read_sql(future_sql, conn)
+            df_future = pd.read_sql(future_sql, conn, params={'today': today_date})
             
         future_orders_map = {}
         if not df_future.empty:
@@ -108,104 +119,128 @@ def generate_smart_forecast(force_refresh=False):
             for index, row in df_future.iterrows():
                 future_orders_map[(row['pickup_date'], row['name'])] = row['total_ordered']
 
+        if not has_history and not future_orders_map:
+            return [], [], [], date.today(), date.today()
+
         forecast_results = []
-        unique_products = df['name'].unique()
+        all_products = Product.query.filter_by(is_available=True).all()
+        unique_products = [p.name for p in all_products]
+        
+        # NIEUW: Maak een map van seizoenen voor snelle check
+        product_seasons = {p.name: (p.season_start, p.season_end) for p in all_products}
         
         start_prediction = date.today() + timedelta(days=1)
         end_prediction = date.today() + timedelta(days=7)
 
-        # --- VOORSPELLEN ---
+        # 4. VOORSPELLEN
         for product_name in unique_products:
-            product_data = daily_shop_sales[daily_shop_sales['name'] == product_name].copy()
-            
             model = None
-            if len(product_data) >= 5:
-                X = product_data[['date_ordinal', 'weekday', 'is_holiday']]
-                y = product_data['quantity']
-                model = RandomForestRegressor(n_estimators=100, random_state=42)
-                model.fit(X, y)
+            if has_history and not daily_shop_sales.empty:
+                product_data = daily_shop_sales[daily_shop_sales['name'] == product_name].copy()
+                if len(product_data) >= 5:
+                    X = product_data[['date_ordinal', 'weekday', 'is_holiday']]
+                    y = product_data['quantity']
+                    
+                    min_date = product_data['date_ordinal'].min()
+                    max_date = product_data['date_ordinal'].max()
+                    if max_date > min_date:
+                        weights = (product_data['date_ordinal'] - min_date) / (max_date - min_date) + 0.2
+                    else:
+                        weights = np.ones(len(product_data))
+
+                    model = RandomForestRegressor(n_estimators=100, random_state=42)
+                    model.fit(X, y, sample_weight=weights)
 
             total_predicted_week = 0
+            raw_predicted_week = 0 
             predicted_tomorrow = 0
             
             for i in range(1, 8):
                 future_date = date.today() + timedelta(days=i)
                 future_date_str = future_date.strftime('%Y-%m-%d')
                 
-                # --- NIEUW: CHECK OP SLUITINGSDAGEN ---
-                is_closed_specific = future_date_str in closed_dates_list
-                is_closed_weekly = future_date.weekday() in closed_weekdays
+                # Check 1: Seizoen (NIEUW)
+                s_start, s_end = product_seasons.get(product_name, (None, None))
+                in_season = True
+                if s_start and s_end:
+                    curr_md = future_date.strftime('%m-%d')
+                    if s_start <= s_end:
+                        in_season = (s_start <= curr_md <= s_end)
+                    else: # Winter over jaarwisseling
+                        in_season = (curr_md >= s_start or curr_md <= s_end)
                 
-                # Als de winkel dicht is, voorspellen we 0 (behalve als er stiekem online bestellingen staan)
-                if is_closed_specific or is_closed_weekly:
-                    shop_prediction = 0
-                    # Online orders tellen we WEL op (voor het geval je die niet geannuleerd hebt)
-                    # Maar de 'spontane' verkoop is 0.
-                else:
-                    shop_prediction = 0
-                    if model:
-                        future_features = pd.DataFrame({
-                            'date_ordinal': [future_date.toordinal()],
-                            'weekday': [future_date.weekday()],
-                            'is_holiday': [is_special_day(future_date)]
-                        })
-                        raw_pred = model.predict(future_features)[0]
-                        shop_prediction = max(0, raw_pred)
+                # Check 2: Winkel gesloten
+                is_closed = (future_date_str in closed_dates_list) or (future_date.weekday() in closed_weekdays)
+                
+                shop_prediction = 0
+                
+                # Alleen voorspellen als winkel open is EN product in seizoen is
+                if not is_closed and in_season and model:
+                    future_features = pd.DataFrame({
+                        'date_ordinal': [future_date.toordinal()],
+                        'weekday': [future_date.weekday()],
+                        'is_holiday': [is_special_day(future_date)]
+                    })
+                    raw_pred = model.predict(future_features)[0]
+                    shop_prediction = max(0, raw_pred)
 
-                # Veiligheidsmarge (alleen als de winkel open is)
                 shop_qty_safe = int(np.ceil(shop_prediction * 1.10)) if shop_prediction > 0 else 0
-
                 online_orders = int(future_orders_map.get((future_date, product_name), 0))
+                
+                raw_predicted_week += (shop_prediction + online_orders)
                 final_qty = shop_qty_safe + online_orders
                 
                 total_predicted_week += final_qty
                 if i == 1: predicted_tomorrow = final_qty
 
+            # --- TREND ANALYSE ---
+            recent_avg = avg_4week_sales.get(product_name, 0) if has_history else 0
+            last_week_real = recent_actuals.get(product_name, 0) if has_history else 0
+            
             trend = "stabiel ➡️"
-            if total_predicted_week > 50: trend = "stijgend 📈"
-            elif total_predicted_week < 10: trend = "dalend 📉"
+            
+            if recent_avg > 0:
+                if last_week_real < (recent_avg * 0.80):
+                    trend = "dalend 📉"
+                elif raw_predicted_week > (recent_avg * 1.05): 
+                    trend = "stijgend 📈"
+                elif raw_predicted_week < (recent_avg * 0.95): 
+                    trend = "dalend 📉"
+            elif total_predicted_week > 0:
+                trend = "stijgend 📈"
 
-            forecast_results.append({
-                'product_name': product_name,
-                'tomorrow': predicted_tomorrow,
-                'week_total': total_predicted_week,
-                'trend': trend
-            })
+            if total_predicted_week > 0 or recent_avg > 0:
+                forecast_results.append({
+                    'product_name': product_name,
+                    'tomorrow': predicted_tomorrow,
+                    'week_total': total_predicted_week,
+                    'trend': trend
+                })
 
         forecast_results.sort(key=lambda x: x['tomorrow'], reverse=True)
 
-        # --- INGREDIËNTEN BEREKENEN ---
+        # INGREDIËNTEN
         ing_tomorrow = {} 
         ing_week = {}
 
         for forecast_item in forecast_results:
             qty_tom = forecast_item['tomorrow']
             qty_week = forecast_item['week_total']
-
             product = Product.query.filter_by(name=forecast_item['product_name']).first()
+            
             if product and product.ingredients:
                 for rule in product.ingredients:
                     i_name = rule.ingredient.name
-                    i_unit = rule.ingredient.unit
-                    i_stock = rule.ingredient.stock_quantity
-
                     needed_tom = rule.quantity_needed * Decimal(qty_tom)
                     needed_week = rule.quantity_needed * Decimal(qty_week)
-
-                    if i_name in ing_tomorrow: ing_tomorrow[i_name]['amount'] += needed_tom
-                    else: ing_tomorrow[i_name] = {'amount': needed_tom, 'unit': i_unit, 'stock': i_stock}
                     
-                    if i_name in ing_week: ing_week[i_name]['amount'] += needed_week
-                    else: ing_week[i_name] = {'amount': needed_week, 'unit': i_unit, 'stock': i_stock}
-
-        all_ingredients = set(ing_tomorrow.keys()) | set(ing_week.keys())
-        for name in all_ingredients:
-            if name not in ing_tomorrow:
-                ref = ing_week[name]
-                ing_tomorrow[name] = {'amount': Decimal(0), 'unit': ref['unit'], 'stock': ref['stock']}
-            if name not in ing_week:
-                ref = ing_tomorrow[name]
-                ing_week[name] = {'amount': Decimal(0), 'unit': ref['unit'], 'stock': ref['stock']}
+                    if i_name not in ing_tomorrow:
+                        ing_tomorrow[i_name] = {'amount': 0, 'unit': rule.ingredient.unit, 'stock': rule.ingredient.stock_quantity}
+                    ing_tomorrow[i_name]['amount'] += needed_tom
+                    
+                    if i_name not in ing_week:
+                        ing_week[i_name] = {'amount': 0, 'unit': rule.ingredient.unit, 'stock': rule.ingredient.stock_quantity}
+                    ing_week[i_name]['amount'] += needed_week
 
         def format_list(d):
             lst = []

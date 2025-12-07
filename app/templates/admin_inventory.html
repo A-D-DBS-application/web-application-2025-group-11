@@ -134,5 +134,35 @@
             </button>
         </form>
     </div>
+
+    <div class="cart-container" style="margin-top: 30px; border: 2px solid #2E7D32; background-color: #F1F8E9;">
+        <h3 style="color: #2E7D32; margin-bottom: 15px;">📉 Gemiste Verkoop (Uitverkocht)</h3>
+        <p style="color: #555; margin-bottom: 20px;">
+            Kwam er een klant voor een product dat <strong>op</strong> was? Geef het hier in.<br>
+            Het systeem telt dit mee als "Vraag" zodat de AI volgende keer <strong>meer</strong> zal voorspellen.
+        </p>
+        
+        <form action="{{ url_for('main.register_missed_sale') }}" method="POST" style="display: flex; gap: 20px; align-items: flex-end; flex-wrap: wrap;">
+            
+            <div style="flex: 1; min-width: 250px;">
+                <label class="form-label">Welk Product?</label>
+                <select name="product_id" class="form-input" required>
+                    <option value="" disabled selected>Kies een product...</option>
+                    {% for p in products %}
+                        <option value="{{ p.id }}">{{ p.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div style="width: 150px;">
+                <label class="form-label">Aantal Gemist</label>
+                <input type="number" name="quantity" min="1" placeholder="bv. 2" class="form-input" required>
+            </div>
+
+            <button type="submit" class="btn-bestel" style="background-color: #2E7D32; height: 42px; border: none;">
+                Registreer Vraag
+            </button>
+        </form>
+    </div>
 </div>
 {% endblock %}
