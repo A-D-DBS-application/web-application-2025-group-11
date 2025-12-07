@@ -16,6 +16,7 @@ def is_special_day(d):
     """Bepaalt of een datum een speciale dag is."""
     be_holidays = holidays.BE(years=d.year)
     if d in be_holidays: return 1
+    # Vaste feestdagen en periodes
     if d.month == 12 and d.day == 6: return 1  # Sinterklaas
     if d.month == 2 and d.day == 14: return 1  # Valentijn
     if d.month == 1 and d.day == 6: return 1   # Driekoningen
@@ -28,14 +29,15 @@ def is_special_day(d):
 def generate_smart_forecast(force_refresh=False):
     global _cached_forecast, _last_calculation_time
     
+    # 1. CHECK CACHE
     if not force_refresh and _cached_forecast and _last_calculation_time:
         if datetime.now() - _last_calculation_time < timedelta(minutes=60):
             print("--- ⚡️ CACHE GEBRUIKT ---")
             return _cached_forecast
 
-    print("--- 🧠 AI TWIN-ENGINE STARTEN ---")
+    print("--- 🧠 AI TWIN-ENGINE STARTEN (WINKEL TREND ONLY) ---")
 
-    # 1. SETTINGS
+    # 2. SETTINGS OPHALEN
     settings = AppSettings.query.first()
     closed_dates_list = []
     closed_weekdays = [] 
@@ -51,7 +53,7 @@ def generate_smart_forecast(force_refresh=False):
                     if data.get('closed'): closed_weekdays.append(int(day_idx))
             except: pass
 
-    # 2. HISTORIE OPHALEN
+    # 3. HISTORIE OPHALEN
     sql = text("""
         SELECT orders.pickup_date, orders.remarks, products.name, order_items.quantity
         FROM order_items
@@ -60,46 +62,40 @@ def generate_smart_forecast(force_refresh=False):
         WHERE orders.pickup_date >= :start_date
         AND orders.pickup_date < :today
     """)
-    
-    today_date = date.today()
-    params = {
-        'start_date': today_date - timedelta(days=370),
-        'today': today_date
-    }
+    # We halen ook 'cancelled' orders op (True Demand)
+    params = {'start_date': date.today() - timedelta(days=370), 'today': date.today()}
 
     try:
         with db.engine.connect() as conn:
             df = pd.read_sql(sql, conn, params=params)
             
         has_history = not df.empty
-        avg_4week_sales = {}
-        recent_actuals = {} 
+        avg_shop_sales = {} # NIEUW: Alleen winkelgemiddelde
         daily_shop_sales = pd.DataFrame()
 
         if has_history:
             df['pickup_date'] = pd.to_datetime(df['pickup_date'])
-            
-            # Trend Referentie (4 weken)
-            cutoff_4weeks = pd.Timestamp(today_date) - pd.Timedelta(days=28)
-            last_4weeks_df = df[df['pickup_date'] >= cutoff_4weeks]
-            sales_4weeks = last_4weeks_df.groupby('name')['quantity'].sum()
-            avg_4week_sales = sales_4weeks / 4
-
-            # Reality Check (1 week)
-            cutoff_1week = pd.Timestamp(today_date) - pd.Timedelta(days=7)
-            last_week_df = df[df['pickup_date'] >= cutoff_1week]
-            recent_actuals = last_week_df.groupby('name')['quantity'].sum()
             
             # Feature Engineering
             df['weekday'] = df['pickup_date'].dt.dayofweek
             df['date_ordinal'] = df['pickup_date'].apply(lambda x: x.toordinal())
             df['is_holiday'] = df['pickup_date'].apply(is_special_day)
 
+            # Splitsen: We hebben de winkeldata nodig voor de trend-vergelijking
             df_shop = df[df['remarks'] == 'Winkelverkoop'].copy()
+            
             if not df_shop.empty:
                 daily_shop_sales = df_shop.groupby(['date_ordinal', 'weekday', 'is_holiday', 'name'])['quantity'].sum().reset_index()
+                
+                # --- TREND BASIS: WINKEL GEMIDDELDE (JAAR) ---
+                # We berekenen hoe goed de WINKEL het normaal doet (zonder online orders)
+                total_shop_sales = df_shop.groupby('name')['quantity'].sum()
+                total_days = (df['pickup_date'].max() - df['pickup_date'].min()).days
+                if total_days < 7: total_days = 7
+                weeks_count = total_days / 7
+                avg_shop_sales = total_shop_sales / weeks_count
 
-        # 3. TOEKOMST
+        # 4. TOEKOMSTIGE ORDERS (HARDE DATA)
         future_sql = text("""
             SELECT orders.pickup_date, products.name, SUM(order_items.quantity) as total_ordered
             FROM order_items
@@ -111,7 +107,7 @@ def generate_smart_forecast(force_refresh=False):
         """)
         
         with db.engine.connect() as conn:
-            df_future = pd.read_sql(future_sql, conn, params={'today': today_date})
+            df_future = pd.read_sql(future_sql, conn, params={'today': date.today()})
             
         future_orders_map = {}
         if not df_future.empty:
@@ -126,13 +122,12 @@ def generate_smart_forecast(force_refresh=False):
         all_products = Product.query.filter_by(is_available=True).all()
         unique_products = [p.name for p in all_products]
         
-        # NIEUW: Maak een map van seizoenen voor snelle check
         product_seasons = {p.name: (p.season_start, p.season_end) for p in all_products}
         
         start_prediction = date.today() + timedelta(days=1)
         end_prediction = date.today() + timedelta(days=7)
 
-        # 4. VOORSPELLEN
+        # 5. VOORSPELLEN
         for product_name in unique_products:
             model = None
             if has_history and not daily_shop_sales.empty:
@@ -141,40 +136,34 @@ def generate_smart_forecast(force_refresh=False):
                     X = product_data[['date_ordinal', 'weekday', 'is_holiday']]
                     y = product_data['quantity']
                     
+                    # Exponentiële Weging
                     min_date = product_data['date_ordinal'].min()
                     max_date = product_data['date_ordinal'].max()
+                    weights = np.ones(len(product_data))
                     if max_date > min_date:
-                        weights = (product_data['date_ordinal'] - min_date) / (max_date - min_date) + 0.2
-                    else:
-                        weights = np.ones(len(product_data))
+                        weights = np.exp(0.05 * (product_data['date_ordinal'] - max_date))
 
                     model = RandomForestRegressor(n_estimators=100, random_state=42)
                     model.fit(X, y, sample_weight=weights)
 
             total_predicted_week = 0
-            raw_predicted_week = 0 
+            trend_predicted_week = 0 # NIEUW: Alleen winkelvoorspelling voor de trend
             predicted_tomorrow = 0
             
             for i in range(1, 8):
                 future_date = date.today() + timedelta(days=i)
                 future_date_str = future_date.strftime('%Y-%m-%d')
                 
-                # Check 1: Seizoen (NIEUW)
+                is_closed = (future_date_str in closed_dates_list) or (future_date.weekday() in closed_weekdays)
+                
                 s_start, s_end = product_seasons.get(product_name, (None, None))
                 in_season = True
                 if s_start and s_end:
                     curr_md = future_date.strftime('%m-%d')
-                    if s_start <= s_end:
-                        in_season = (s_start <= curr_md <= s_end)
-                    else: # Winter over jaarwisseling
-                        in_season = (curr_md >= s_start or curr_md <= s_end)
-                
-                # Check 2: Winkel gesloten
-                is_closed = (future_date_str in closed_dates_list) or (future_date.weekday() in closed_weekdays)
-                
+                    if s_start <= s_end: in_season = (s_start <= curr_md <= s_end)
+                    else: in_season = (curr_md >= s_start or curr_md <= s_end)
+
                 shop_prediction = 0
-                
-                # Alleen voorspellen als winkel open is EN product in seizoen is
                 if not is_closed and in_season and model:
                     future_features = pd.DataFrame({
                         'date_ordinal': [future_date.toordinal()],
@@ -184,42 +173,46 @@ def generate_smart_forecast(force_refresh=False):
                     raw_pred = model.predict(future_features)[0]
                     shop_prediction = max(0, raw_pred)
 
+                # Veiligheidsmarge voor INKOOP
                 shop_qty_safe = int(np.ceil(shop_prediction * 1.10)) if shop_prediction > 0 else 0
+                
+                # Online orders
                 online_orders = int(future_orders_map.get((future_date, product_name), 0))
                 
-                raw_predicted_week += (shop_prediction + online_orders)
+                # --- TREND: ALLEEN WINKEL (zonder online vervuiling) ---
+                trend_predicted_week += shop_prediction
+
+                # --- INKOOP: TOTAAL (Winkel + Online) ---
                 final_qty = shop_qty_safe + online_orders
                 
                 total_predicted_week += final_qty
                 if i == 1: predicted_tomorrow = final_qty
 
             # --- TREND ANALYSE ---
-            recent_avg = avg_4week_sales.get(product_name, 0) if has_history else 0
-            last_week_real = recent_actuals.get(product_name, 0) if has_history else 0
-            
+            # Vergelijk: Voorspelde Winkelverkoop VS Gemiddelde Winkelverkoop
+            shop_avg = avg_shop_sales.get(product_name, 0) if has_history else 0
             trend = "stabiel ➡️"
             
-            if recent_avg > 0:
-                if last_week_real < (recent_avg * 0.80):
-                    trend = "dalend 📉"
-                elif raw_predicted_week > (recent_avg * 1.05): 
-                    trend = "stijgend 📈"
-                elif raw_predicted_week < (recent_avg * 0.95): 
-                    trend = "dalend 📉"
-            elif total_predicted_week > 0:
+            if shop_avg > 0:
+                if trend_predicted_week > (shop_avg * 1.10): trend = "stijgend 📈"
+                elif trend_predicted_week < (shop_avg * 0.90): trend = "dalend 📉"
+            elif trend_predicted_week > 0:
                 trend = "stijgend 📈"
 
-            if total_predicted_week > 0 or recent_avg > 0:
+            if total_predicted_week > 0 or shop_avg > 0:
                 forecast_results.append({
                     'product_name': product_name,
                     'tomorrow': predicted_tomorrow,
                     'week_total': total_predicted_week,
-                    'trend': trend
+                    'trend': trend,
+                    # Debug Data (Winkel only)
+                    'debug_history_avg': round(shop_avg, 1), 
+                    'debug_raw_forecast': round(trend_predicted_week, 1)
                 })
 
         forecast_results.sort(key=lambda x: x['tomorrow'], reverse=True)
 
-        # INGREDIËNTEN
+        # Ingrediënten (Ongewijzigd)
         ing_tomorrow = {} 
         ing_week = {}
 
@@ -227,29 +220,20 @@ def generate_smart_forecast(force_refresh=False):
             qty_tom = forecast_item['tomorrow']
             qty_week = forecast_item['week_total']
             product = Product.query.filter_by(name=forecast_item['product_name']).first()
-            
             if product and product.ingredients:
                 for rule in product.ingredients:
                     i_name = rule.ingredient.name
                     needed_tom = rule.quantity_needed * Decimal(qty_tom)
                     needed_week = rule.quantity_needed * Decimal(qty_week)
-                    
-                    if i_name not in ing_tomorrow:
-                        ing_tomorrow[i_name] = {'amount': 0, 'unit': rule.ingredient.unit, 'stock': rule.ingredient.stock_quantity}
+                    if i_name not in ing_tomorrow: ing_tomorrow[i_name] = {'amount': 0, 'unit': rule.ingredient.unit, 'stock': rule.ingredient.stock_quantity}
                     ing_tomorrow[i_name]['amount'] += needed_tom
-                    
-                    if i_name not in ing_week:
-                        ing_week[i_name] = {'amount': 0, 'unit': rule.ingredient.unit, 'stock': rule.ingredient.stock_quantity}
+                    if i_name not in ing_week: ing_week[i_name] = {'amount': 0, 'unit': rule.ingredient.unit, 'stock': rule.ingredient.stock_quantity}
                     ing_week[i_name]['amount'] += needed_week
 
         def format_list(d):
             lst = []
             for name, data in d.items():
-                lst.append({
-                    'name': name, 'amount': round(data['amount'], 1), 'unit': data['unit'], 
-                    'stock': data['stock'],
-                    'status': 'Tekort ⚠️' if data['amount'] > data['stock'] else 'Voldoende ✅'
-                })
+                lst.append({'name': name, 'amount': round(data['amount'], 1), 'unit': data['unit'], 'stock': data['stock'], 'status': 'Tekort ⚠️' if data['amount'] > data['stock'] else 'Voldoende ✅'})
             return sorted(lst, key=lambda x: x['name'])
 
         shop_tomorrow = format_list(ing_tomorrow)

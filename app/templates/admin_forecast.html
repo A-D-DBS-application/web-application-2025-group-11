@@ -9,8 +9,12 @@
                 <h1>Bak-Advies</h1>
                 <p>Voorspelling voor: <strong>{{ start_date.strftime('%d-%m') }} t/m {{ end_date.strftime('%d-%m') }}</strong></p>
             </div>
+            
             <form action="{{ url_for('main.refresh_forecast') }}" method="POST" style="margin: 0;">
-                <button type="submit" title="Nu opnieuw berekenen" style="background: white; border: 1px solid #ccc; border-radius: 50%; width: 40px; height: 40px; cursor: pointer; font-size: 1.2em;">🔄</button>
+                <button type="submit" title="Nu opnieuw berekenen" 
+                        style="background: white; border: 1px solid #ccc; border-radius: 50%; width: 40px; height: 40px; cursor: pointer; font-size: 1.2em; transition: transform 0.2s;">
+                    🔄
+                </button>
             </form>
         </div>
         
@@ -18,7 +22,7 @@
             <a href="{{ url_for('main.admin_inventory') }}" class="btn-admin-nav">Voorraad</a>
             <a href="{{ url_for('main.admin_products') }}" class="btn-admin-nav">Producten</a>
             <a href="{{ url_for('main.admin_orders') }}" class="btn-admin-nav">Orders</a>
-            <a href="{{ url_for('main.admin_forecast') }}" class="btn-admin-nav" style="background: white; color: #593C28; border: 2px solid #eee;">Forecast</a>
+            <a href="{{ url_for('main.admin_forecast') }}" class="btn-admin-nav" style="background-color: white; color: #593C28; border: 2px solid #eee;">Forecast</a>
             <a href="{{ url_for('main.admin_settings') }}" class="btn-admin-nav">Settings</a>
         </div>
     </div>
@@ -31,35 +35,84 @@
     {% else %}
     
     <div style="margin-bottom: 50px;">
-        <h3 style="color: #593C28; margin-bottom: 15px;">📋 Verwachte orders</h3>
-        <div class="cart-container table-responsive" style="padding: 0;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 15px;">
+            <h3 style="color: #593C28; margin: 0;">📋 Verwachte verkoop</h3>
+            
+            <div style="width: 300px;">
+                <input type="text" id="forecastSearch" onkeyup="filterForecast()" 
+                       placeholder="Zoek product..." 
+                       class="form-input" 
+                       style="padding: 8px 15px; border-radius: 20px;">
+            </div>
+        </div>
+
+        <div class="cart-container" style="padding: 0; overflow: visible;">
             <table style="width: 100%; border-collapse: collapse;">
                 <thead>
                     <tr style="border-bottom: 2px solid #eee; text-align: left; color: #593C28; background-color: #f9f9f9;">
                         <th style="padding: 15px;">Product</th>
-                        <th style="padding: 15px;">Trend</th>
-                        <th style="padding: 15px; background-color: #E8F5E9; color: #2E7D32;">🌅 Voor Morgen</th>
-                        <th style="padding: 15px; color: #666;">📅 7 Dagen</th>
+                        
+                        <th style="padding: 15px; color: #999; font-size: 0.85em;" title="Gemiddelde van afgelopen 4 weken">
+                            4-Weken Gem.
+                        </th>
+                        <th style="padding: 15px; color: #999; font-size: 0.85em;" title="Zuivere AI voorspelling (zonder marge)">
+                            Voorspelling (Ruw)
+                        </th>
+                        
+                        <th style="padding: 15px;">
+                            Trend 
+                            <span class="item-tooltip-wrapper" 
+                                  style="font-weight: normal; font-size: 1em; margin-left: 5px; cursor: help;"
+                                  onmouseenter="showTooltip(event, `
+                                    <div style='text-align:left; line-height:1.4;'>
+                                        <strong>Hoe werkt de trend?</strong><br>
+                                        Vergelijking voorspelling vs. gemiddelde afgelopen 4 weken:<br><br>
+                                        📈 <strong>Stijgend:</strong> > 5% hoger<br>
+                                        📉 <strong>Dalend:</strong> > 5% lager<br>
+                                        ➡️ <strong>Stabiel:</strong> Ongeveer gelijk
+                                    </div>
+                                  `)"
+                                  onmouseleave="hideTooltip()">
+                                ℹ️
+                            </span>
+                        </th>
+
+                        <th style="padding: 15px; background-color: #E8F5E9; color: #2E7D32;">
+                            🌅 Voor Morgen
+                        </th>
+                        <th style="padding: 15px; color: #666;">
+                            📅 7 Dagen
+                        </th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="forecastTableBody">
                     {% for item in forecast %}
-                    <tr style="border-bottom: 1px solid #f0f0f0;">
+                    <tr class="forecast-row" data-search="{{ item.product_name|lower }}" style="border-bottom: 1px solid #f0f0f0;">
                         <td style="padding: 15px; font-weight: bold;">{{ item.product_name }}</td>
+                        
+                        <td style="padding: 15px; color: #bbb; font-size: 0.9em;">{{ item.debug_4week_avg }}</td>
+                        <td style="padding: 15px; color: #bbb; font-size: 0.9em;">{{ item.debug_raw_forecast }}</td>
+
                         <td style="padding: 15px;">{{ item.trend }}</td>
-                        <td style="padding: 15px; background-color: #f1f8e9; font-weight: bold; font-size: 1.2em; color: #2E7D32;">{{ item.tomorrow }} stuks</td>
-                        <td style="padding: 15px; color: #666;">{{ item.week_total }} stuks</td>
+                        <td style="padding: 15px; background-color: #f1f8e9; font-weight: bold; font-size: 1.2em; color: #2E7D32;">
+                            {{ item.tomorrow }} stuks
+                        </td>
+                        <td style="padding: 15px; color: #666;">
+                            {{ item.week_total }} stuks
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
+            <div id="noResults" style="display: none; padding: 20px; text-align: center; color: #888;">Geen producten gevonden.</div>
         </div>
     </div>
 
     <div style="display: flex; gap: 40px; flex-wrap: wrap; align-items: stretch;">
+        
         <div style="flex: 1; min-width: 400px; display: flex; flex-direction: column;">
             <h3 style="color: #593C28; margin-bottom: 15px;">🛒 Nodig voor Morgen</h3>
-            <div class="cart-container table-responsive" style="padding: 0; background-color: #fffaf0; border: 1px solid #e0d6cc; flex-grow: 1;">
+            <div class="cart-container" style="padding: 0; overflow: hidden; background-color: #fffaf0; border: 1px solid #e0d6cc; flex-grow: 1;">
                 <table style="width: 100%; border-collapse: collapse;">
                     <thead>
                         <tr style="border-bottom: 2px solid #eee; text-align: left; color: #593C28;">
@@ -72,7 +125,15 @@
                         {% for item in shop_tomorrow %}
                         <tr style="border-bottom: 1px solid #eee;">
                             <td style="padding: 12px;">{{ item.name }}</td>
-                            <td style="padding: 12px; font-weight: bold;">{{ item.amount }} {{ item.unit }}</td>
+                            
+                            {% if item.amount == 0 %}
+                                <td style="padding: 12px; font-weight: bold; color: #ccc;">
+                            {% else %}
+                                <td style="padding: 12px; font-weight: bold;">
+                            {% endif %}
+                                {{ item.amount }} {{ item.unit }}
+                            </td>
+                            
                             <td style="padding: 12px; text-align: center;">
                                 {% if 'Voldoende' in item.status %}
                                     <span class="status-badge status-ok">OK</span>
@@ -81,6 +142,8 @@
                                 {% endif %}
                             </td>
                         </tr>
+                        {% else %}
+                            <tr><td colspan="3" style="padding: 20px; text-align: center; color: #888;">Geen recepten.</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
@@ -89,8 +152,8 @@
 
         <div style="flex: 1; min-width: 400px; display: flex; flex-direction: column;">
             <h3 style="color: #2E7D32; margin-bottom: 15px;">📅 Nodig komende 7 dagen</h3>
-            <div class="cart-container table-responsive" style="padding: 0; background-color: #F1F8E9; border: 1px solid #C8E6C9; flex-grow: 1;">
-                <table style="width: 100%; border-collapse: collapse;">
+            <div class="cart-container" style="padding: 0; overflow: hidden; background-color: #F1F8E9; border: 1px solid #C8E6C9; flex-grow: 1; display: flex; flex-direction: column;">
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: auto;">
                     <thead>
                         <tr style="border-bottom: 2px solid #ccc; text-align: left; color: #2E7D32;">
                             <th style="padding: 12px;">Ingrediënt</th>
@@ -103,7 +166,15 @@
                         {% for item in shop_week %}
                         <tr style="border-bottom: 1px solid #ddd;">
                             <td style="padding: 12px;">{{ item.name }}</td>
-                            <td style="padding: 12px; font-weight: bold;">{{ item.amount }} {{ item.unit }}</td>
+                            
+                            {% if item.amount == 0 %}
+                                <td style="padding: 12px; font-weight: bold; color: #ccc;">
+                            {% else %}
+                                <td style="padding: 12px; font-weight: bold;">
+                            {% endif %}
+                                {{ item.amount }} {{ item.unit }}
+                            </td>
+                            
                             <td style="padding: 12px; color: #666;">{{ item.stock }}</td>
                             <td style="padding: 12px; text-align: center;">
                                 {% if 'Voldoende' in item.status %}
@@ -118,7 +189,66 @@
                 </table>
             </div>
         </div>
+
     </div>
+
     {% endif %}
+
 </div>
+
+<div id="floating-tooltip"></div>
+
+<script>
+    // 1. Zoekfunctie (Frontend Filtering)
+    function filterForecast() {
+        const input = document.getElementById('forecastSearch');
+        const filterText = input.value.toLowerCase();
+        const rows = document.querySelectorAll('.forecast-row');
+        let visibleCount = 0;
+
+        rows.forEach(row => {
+            const searchText = row.getAttribute('data-search') || "";
+            if (searchText.includes(filterText)) {
+                row.style.display = '';
+                visibleCount++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        // Toon melding als er niks gevonden is
+        const noResults = document.getElementById('noResults');
+        if (visibleCount === 0) {
+            noResults.style.display = 'block';
+        } else {
+            noResults.style.display = 'none';
+        }
+    }
+
+    // 2. Tooltip Logica
+    const tooltip = document.getElementById('floating-tooltip');
+
+    function showTooltip(event, content) {
+        tooltip.innerHTML = content;
+        tooltip.style.display = 'block';
+        moveTooltip(event);
+    }
+
+    function hideTooltip() {
+        tooltip.style.display = 'none';
+    }
+
+    function moveTooltip(event) {
+        const x = event.clientX + 15;
+        const y = event.clientY + 15;
+        tooltip.style.left = x + 'px';
+        tooltip.style.top = y + 'px';
+    }
+
+    document.addEventListener('mousemove', function(e) {
+        if (tooltip.style.display === 'block') {
+            moveTooltip(e);
+        }
+    });
+</script>
 {% endblock %}
