@@ -176,7 +176,7 @@ def run_history_seeder():
             if i % 30 == 0: 
                 try:
                     db.session.commit()
-                    print("█", end="", flush=True)
+                    print("🤖", end="", flush=True)
                 except Exception as e:
                     db.session.rollback()
                     print(f"Fout: {e}")
