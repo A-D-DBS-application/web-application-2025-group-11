@@ -81,7 +81,7 @@
                                 </td>
 
                                 <td style="padding: 15px;">
-                                    <div style="display: flex; gap: 5px; flex-wrap: wrap;">
+                                    <div style="display: flex; gap: 5px;">
                                         {% if order.status == 'pending' %}
                                             <form action="{{ url_for('main.update_order_status', order_id=order.id) }}" method="POST">
                                                 <input type="hidden" name="status" value="ready">
@@ -91,13 +91,6 @@
                                             <form action="{{ url_for('main.update_order_status', order_id=order.id) }}" method="POST">
                                                 <input type="hidden" name="status" value="picked_up">
                                                 <button type="submit" class="btn-status-action btn-finish">✅</button>
-                                            </form>
-                                        {% endif %}
-                                        
-                                        {% if order.status != 'picked_up' and order.status != 'cancelled' %}
-                                            <form action="{{ url_for('main.update_order_status', order_id=order.id) }}" method="POST" style="margin-left: auto;">
-                                                <input type="hidden" name="status" value="cancelled">
-                                                <button type="submit" class="btn-status-action btn-cancel" title="Annuleren" onclick="return confirm('Zeker weten annuleren?');">✕</button>
                                             </form>
                                         {% endif %}
                                     </div>
@@ -154,7 +147,7 @@
         </form>
     </div>
 
-    <div style="margin-bottom: 50px;">
+    <div style="margin-bottom: 50px;" id="future-section">
         <h3 style="color: #2E7D32; margin-bottom: 15px;">Toekomstige orders</h3>
         <div class="cart-container table-responsive" style="padding: 0; border-top: 4px solid #2E7D32;">
             <table style="width: 100%; border-collapse: collapse;">
@@ -164,7 +157,8 @@
                         <th style="padding: 15px;">Klant</th>
                         <th style="padding: 15px;">Bestelling</th>
                         <th style="padding: 15px;">Status</th>
-                        <th style="padding: 15px;">Actie</th> </tr>
+                        <th style="padding: 15px;">Actie</th>
+                    </tr>
                 </thead>
                 <tbody>
                     {% for order in pagination_future.items %}
@@ -184,12 +178,14 @@
                             <td style="padding: 15px;">
                                 {% if order.status == 'pending' %}<span class="status-badge status-warn">In wacht</span>
                                 {% elif order.status == 'ready' %}<span class="status-badge status-ok">Staat klaar</span>
+                                {% elif order.status == 'picked_up' %}<span class="status-badge" style="background:#ddd; color:#555;">Opgehaald</span>
                                 {% else %}<span class="status-badge" style="background:#eee;">{{ order.status }}</span>
                                 {% endif %}
                             </td>
 
                             <td style="padding: 15px;">
                                 <div style="display: flex; gap: 5px;">
+                                    
                                     {% if order.status == 'pending' %}
                                         <form action="{{ url_for('main.update_order_status', order_id=order.id) }}" method="POST">
                                             <input type="hidden" name="status" value="ready">
@@ -197,6 +193,13 @@
                                         </form>
                                     {% endif %}
                                     
+                                    {% if order.status == 'ready' %}
+                                        <form action="{{ url_for('main.update_order_status', order_id=order.id) }}" method="POST">
+                                            <input type="hidden" name="status" value="picked_up">
+                                            <button type="submit" class="btn-status-action btn-finish" title="Nu afronden (Vroeg opgehaald)">✅</button>
+                                        </form>
+                                    {% endif %}
+
                                     {% if order.status != 'cancelled' and order.status != 'picked_up' %}
                                         <form action="{{ url_for('main.update_order_status', order_id=order.id) }}" method="POST">
                                             <input type="hidden" name="status" value="cancelled">
@@ -215,16 +218,20 @@
         
         <div style="margin-top: 10px; text-align: center;">
             {% if pagination_future.has_prev %}
-                <a href="{{ url_for('main.admin_orders', page_future=pagination_future.prev_num, filter_date=filters.date, filter_client=filters.client, filter_product=filters.product, filter_status=filters.status, filter_price_min=filters.price_min) }}" class="btn-admin-nav">&larr;</a>
+                <a href="{{ url_for('main.admin_orders', page_future=pagination_future.prev_num, filter_date=filters.date, filter_client=filters.client, filter_product=filters.product, filter_status=filters.status, filter_price_min=filters.price_min, _anchor='future-section') }}" class="btn-admin-nav">&larr;</a>
             {% endif %}
-            <span style="margin: 0 10px;">Pagina {{ pagination_future.page }}</span>
+            
+            <span style="margin: 0 10px; font-weight: bold; color: #593C28;">
+                Pagina {{ pagination_future.page }} van {{ pagination_future.pages }}
+            </span>
+            
             {% if pagination_future.has_next %}
-                <a href="{{ url_for('main.admin_orders', page_future=pagination_future.next_num, filter_date=filters.date, filter_client=filters.client, filter_product=filters.product, filter_status=filters.status, filter_price_min=filters.price_min) }}" class="btn-admin-nav">&rarr;</a>
+                <a href="{{ url_for('main.admin_orders', page_future=pagination_future.next_num, filter_date=filters.date, filter_client=filters.client, filter_product=filters.product, filter_status=filters.status, filter_price_min=filters.price_min, _anchor='future-section') }}" class="btn-admin-nav">&rarr;</a>
             {% endif %}
         </div>
     </div>
 
-    <div style="opacity: 0.9;">
+    <div style="opacity: 0.9;" id="history-section">
         <h3 style="color: #666; margin-bottom: 15px;">Orders Verleden</h3>
         <div class="cart-container table-responsive" style="padding: 0; background: #f9f9f9;">
             <table style="width: 100%; border-collapse: collapse;">
@@ -234,7 +241,8 @@
                         <th style="padding: 15px;">Klant</th>
                         <th style="padding: 15px;">Bestelling</th>
                         <th style="padding: 15px;">Status</th>
-                        <th style="padding: 15px;">Actie</th> </tr>
+                        <th style="padding: 15px;">Actie</th>
+                    </tr>
                 </thead>
                 <tbody>
                     {% for order in pagination_history.items %}
@@ -287,11 +295,15 @@
         
         <div style="margin-top: 10px; text-align: center;">
             {% if pagination_history.has_prev %}
-                <a href="{{ url_for('main.admin_orders', page_history=pagination_history.prev_num, filter_date=filters.date, filter_client=filters.client, filter_product=filters.product, filter_status=filters.status, filter_price_min=filters.price_min) }}" class="btn-admin-nav">&larr;</a>
+                <a href="{{ url_for('main.admin_orders', page_history=pagination_history.prev_num, filter_date=filters.date, filter_client=filters.client, filter_product=filters.product, filter_status=filters.status, filter_price_min=filters.price_min, _anchor='history-section') }}" class="btn-admin-nav">&larr;</a>
             {% endif %}
-            <span style="margin: 0 10px;">Pagina {{ pagination_history.page }}</span>
+            
+            <span style="margin: 0 10px; font-weight: bold; color: #666;">
+                Pagina {{ pagination_history.page }} van {{ pagination_history.pages }}
+            </span>
+            
             {% if pagination_history.has_next %}
-                <a href="{{ url_for('main.admin_orders', page_history=pagination_history.next_num, filter_date=filters.date, filter_client=filters.client, filter_product=filters.product, filter_status=filters.status, filter_price_min=filters.price_min) }}" class="btn-admin-nav">&rarr;</a>
+                <a href="{{ url_for('main.admin_orders', page_history=pagination_history.next_num, filter_date=filters.date, filter_client=filters.client, filter_product=filters.product, filter_status=filters.status, filter_price_min=filters.price_min, _anchor='history-section') }}" class="btn-admin-nav">&rarr;</a>
             {% endif %}
         </div>
     </div>
