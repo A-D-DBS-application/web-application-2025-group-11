@@ -9,52 +9,60 @@ from sklearn.ensemble import RandomForestRegressor
 from .models import db, Product, AppSettings
 from sqlalchemy import text
 
-# --- GLOBAL CACHE ---
-# Voorkomt dat we bij elke page refresh zware berekeningen doen.
-# Cache wordt na 60 minuten ongeldig verklaard.
+# ==============================================================================
+#  GLOBAL CACHE (PERFORMANCE OPTIMIZATION)
+# ==============================================================================
+# We cachen het resultaat om te voorkomen dat de database en CPU
+# bij elke pageload belast worden. De forecast verandert immers niet elke minuut.
 _cached_forecast = None
 _last_calculation_time = None
 
+# ==============================================================================
+#  HELPER: FEATURE ENGINEERING
+# ==============================================================================
 def is_special_day(d):
     """
-    Feature Engineering: Kent gewichten toe aan dagen.
-    Random Forest leert hierdoor dat feestdagen = meer omzet.
+    Kent gewichten toe aan dagen.
+    Hierdoor leert de AI dat feestdagen = meer omzet.
     """
+    # 1. Officiële Belgische feestdagen
     be_holidays = holidays.BE(years=d.year)
     if d in be_holidays: return 1.8
     
-    # Decembermaand (Kerstperiode) is drukker
+    # 2. Decembermaand (Sinterklaas & Kerst)
     if d.month == 12:
-        if d.day <= 6: return 1.5  # Sinterklaas
-        if d.day >= 20: return 1.6 # Kerst
-        return 1.2 # Gewone decemberdagen
+        if d.day <= 6: return 1.5  # Sinterklaas piek
+        if d.day >= 20: return 1.6 # Kerst piek
+        return 1.2 
         
-    # Commerciële hoogdagen
+    # 3. Commerciële hoogdagen
     if d.month == 2 and d.day == 14: return 1.3  # Valentijn
     if d.month == 1 and d.day == 6: return 1.4   # Driekoningen
     
-    # Variabele zondagen (Moederdag/Vaderdag)
-    if d.weekday() == 6 and d.month in [5, 6] and 8 <= d.day <= 14: return 1.5
+    # 4. Variabele zondagen (Moederdag/Vaderdag gokje voor demo)
+    if d.weekday() == 6 and d.month in [5, 6] and 8 <= d.day <= 14: return 1.5 
     
-    # Verloren Maandag (Maandag na Driekoningen)
+    # 5. Verloren Maandag (Worstenbroden!)
     if d.month == 1 and d.weekday() == 0 and 7 <= d.day <= 13: return 1.6
     
     return 0
 
 def get_season_status(product, d):
     """
-    Filtert producten die niet beschikbaar zijn in het huidige seizoen.
-    Voorkomt dat de AI 'Speculaas' voorspelt in juli.
+    Hard-filtert producten die niet beschikbaar zijn.
+    Voorkomt dat de AI 'Speculaas' voorspelt in juli, zelfs als het patroon dat zou denken.
     """
     if not product.season_start or not product.season_end: return True
-    
     curr_md = d.strftime('%m-%d')
     if product.season_start <= product.season_end:
         return product.season_start <= curr_md <= product.season_end
     else:
-        # Seizoen loopt over jaarwisseling heen (bv. Nov -> Jan)
+        # Over de jaarwisseling heen (bv. Dec tot Jan)
         return curr_md >= product.season_start or curr_md <= product.season_end
 
+# ==============================================================================
+#  CORE ALGORITHM: TWIN-ENGINE FORECAST
+# ==============================================================================
 def generate_smart_forecast(force_refresh=False):
     global _cached_forecast, _last_calculation_time
     
@@ -63,10 +71,12 @@ def generate_smart_forecast(force_refresh=False):
         if datetime.now() - _last_calculation_time < timedelta(minutes=60):
             return _cached_forecast
 
-    print("--- 🧠 AI TWIN-ENGINE: ADAPTIVE SCALING ACTIVE ---")
+    print("--- 🧠 AI TWIN-ENGINE: START BEREKENING ---")
 
     try:
-        # 2. Settings Ophalen (Sluitingsdagen)
+        # ---------------------------------------------------------
+        # STAP A: Settings & Sluitingsdagen ophalen
+        # ---------------------------------------------------------
         settings = AppSettings.query.first()
         closed_dates_list = []
         closed_weekdays = [] 
@@ -81,10 +91,12 @@ def generate_smart_forecast(force_refresh=False):
                         if data.get('closed'): closed_weekdays.append(int(day_idx))
                 except: pass
 
-        # 3. Historische Data Ophalen (Training Set)
-        # We kijken 370 dagen terug om jaarlijkse patronen te vangen
+        # ---------------------------------------------------------
+        # STAP B: Historische Data (Training Set)
+        # ---------------------------------------------------------
         start_date_db = date.today() - timedelta(days=370)
         
+        # We halen ALLE items op, ook cancelled (want dat is gemiste vraag!)
         sql = text("""
             SELECT orders.pickup_date, orders.remarks, products.name, products.category, order_items.quantity
             FROM order_items
@@ -101,25 +113,27 @@ def generate_smart_forecast(force_refresh=False):
         daily_shop_sales = pd.DataFrame()
         avg_cat_sales = {}
         
-        # Statistieken voor Adaptive Scaling
-        recent_velocity = {}    # Realiteit (Laatste 30 dagen)
-        historical_baseline = {} # Geheugen (Vorig jaar)
+        recent_velocity = {}     
+        historical_baseline = {} 
+        
+        # Default fallback ratio (Online vs Winkel)
+        current_online_ratio = 0.15 
 
         if has_history:
             df['pickup_date'] = pd.to_datetime(df['pickup_date'])
             
-            # --- Feature Engineering ---
-            # Cyclische tijdskenmerken (Sinus/Cosinus) zorgen voor betere overgangen tussen dec/jan
+            # Feature Engineering (Cyclical Time Encoding)
+            # Dit helpt de AI om 'eind december' en 'begin januari' als dichtbij elkaar te zien
             df['month_sin'] = np.sin(2 * np.pi * df['pickup_date'].dt.month / 12)
             df['month_cos'] = np.cos(2 * np.pi * df['pickup_date'].dt.month / 12)
             df['day_sin'] = np.sin(2 * np.pi * df['pickup_date'].dt.dayofweek / 7)
             df['day_cos'] = np.cos(2 * np.pi * df['pickup_date'].dt.dayofweek / 7)
-            
             df['date_ordinal'] = df['pickup_date'].apply(lambda x: x.toordinal())
             df['is_holiday'] = df['pickup_date'].apply(is_special_day)
 
-            # Engine 1 traint ENKEL op Winkelverkoop (puur consumentengedrag)
+            # Splitsen: Engine 1 traint puur op Winkelverkoop (Clean Data)
             df_shop = df[df['remarks'] == 'Winkelverkoop'].copy()
+            df_online = df[df['remarks'] != 'Winkelverkoop'].copy()
             
             if not df_shop.empty:
                 daily_shop_sales = df_shop.groupby([
@@ -127,20 +141,30 @@ def generate_smart_forecast(force_refresh=False):
                     'is_holiday', 'name', 'category'
                 ])['quantity'].sum().reset_index()
                 
-                # Fallback voor nieuwe producten
                 avg_cat_sales = daily_shop_sales.groupby('category')['quantity'].mean().to_dict()
-
-                # --- ADAPTIVE SCALING METRICS ---
-                # 1. Baseline: Hoeveel verkopen we gemiddeld van dit product?
                 historical_baseline = daily_shop_sales.groupby('name')['quantity'].mean().to_dict()
 
-                # 2. Velocity: Hoeveel verkochten we de afgelopen 30 dagen?
-                last_30_days = df_shop[df_shop['pickup_date'] > (pd.Timestamp.now() - pd.Timedelta(days=30))]
-                if not last_30_days.empty:
-                    # Delen door 30.0 geeft het échte daggemiddelde (inclusief 0-dagen)
-                    recent_velocity = (last_30_days.groupby('name')['quantity'].sum() / 30.0).to_dict()
+                # --- RECENTE PRESTATIES (Velocity Check) ---
+                cutoff_date = pd.Timestamp.now() - pd.Timedelta(days=30)
+                last_30_days_shop = df_shop[df_shop['pickup_date'] > cutoff_date]
+                last_30_days_online = df_online[df_online['pickup_date'] > cutoff_date]
 
-        # 4. Toekomstige Online Orders (Engine 2)
+                if not last_30_days_shop.empty:
+                    recent_velocity = (last_30_days_shop.groupby('name')['quantity'].sum() / 30.0).to_dict()
+                    
+                    # --- ZELFLERENDE ONLINE RATIO ---
+                    # De AI leert: "Voor elke 100 broden in de winkel, worden er X online besteld"
+                    total_shop_qty = last_30_days_shop['quantity'].sum()
+                    total_online_qty = last_30_days_online['quantity'].sum() if not last_30_days_online.empty else 0
+                    
+                    if total_shop_qty > 0:
+                        raw_ratio = total_online_qty / total_shop_qty
+                        # Veiligheidsbegrenzing: Tussen 5% en 80%
+                        current_online_ratio = max(0.05, min(0.80, raw_ratio))
+
+        # ---------------------------------------------------------
+        # STAP C: Harde Data (Reeds besteld voor de toekomst)
+        # ---------------------------------------------------------
         future_sql = text("""
             SELECT orders.pickup_date, products.name, SUM(order_items.quantity) as total_ordered
             FROM order_items
@@ -159,7 +183,9 @@ def generate_smart_forecast(force_refresh=False):
             for _, row in df_future.iterrows():
                 future_map[(row['pickup_date'], row['name'])] = row['total_ordered']
 
-        # 5. Voorspelling Genereren
+        # ---------------------------------------------------------
+        # STAP D: DE VOORSPELLINGS LOOP (PER PRODUCT)
+        # ---------------------------------------------------------
         forecast_results = []
         all_products = Product.query.filter_by(is_available=True).all()
         
@@ -169,28 +195,26 @@ def generate_smart_forecast(force_refresh=False):
         for product in all_products:
             model = None
             
+            # Data voor Scaling & Trend
             prod_velocity = recent_velocity.get(product.name, 0.0)
             prod_history = historical_baseline.get(product.name, 1.0) 
             
-            # --- SCALING FACTOR BEREKENING ---
-            # Verhouding: (Huidige Prestatie) / (Historische Prestatie)
-            # Als we 20% minder verkopen dan vorig jaar, wordt de factor 0.8
+            # --- ADAPTIVE SCALING (Crisis Management) ---
+            # Als de verkoop plots instort of piekt (velocity vs history),
+            # schaalt deze factor de AI-voorspelling bij.
             scaling_factor = 1.0
-            if prod_history > 0.1: # Voorkom deling door 0
+            if prod_history > 0.1: 
                 scaling_factor = prod_velocity / prod_history
-            
-            # Begrenzing (Clamping): Factor mag niet extremer zijn dan 0.3x of 1.5x
-            # Dit voorkomt dat het model op hol slaat bij nieuwe/seizoensproducten
+            # Begrens de factor (max 50% groei / max 70% krimp toegestaan in model)
             scaling_factor = max(0.3, min(1.5, scaling_factor))
 
+            # Train AI (Random Forest)
             if has_history and not daily_shop_sales.empty:
                 p_data = daily_shop_sales[daily_shop_sales['name'] == product.name].copy()
-                # Minimaal 5 datapunten nodig voor een betrouwbaar model
                 if len(p_data) >= 5:
                     X = p_data[['date_ordinal', 'month_sin', 'month_cos', 'day_sin', 'day_cos', 'is_holiday']]
                     y = p_data['quantity']
-                    
-                    # Exponentiële weging: Recente data weegt zwaarder in training
+                    # Recente data weegt exponentieel zwaarder
                     weights = np.exp(0.02 * (p_data['date_ordinal'] - p_data['date_ordinal'].max()))
                     
                     model = RandomForestRegressor(n_estimators=100, max_depth=10, random_state=42)
@@ -203,10 +227,8 @@ def generate_smart_forecast(force_refresh=False):
             for i in range(1, 8):
                 f_date = date.today() + timedelta(days=i)
                 
-                # --- ENGINE 1: WINKEL VOORSPELLING (AI) ---
+                # --- ENGINE 1: WINKEL (Probabilistische AI) ---
                 shop_pred = 0
-                
-                # Check constraints
                 is_closed = (f_date.strftime('%Y-%m-%d') in closed_dates_list) or (f_date.weekday() in closed_weekdays)
                 in_season = get_season_status(product, f_date)
                 
@@ -221,36 +243,37 @@ def generate_smart_forecast(force_refresh=False):
                             'is_holiday': [is_special_day(f_date)]
                         })
                         base_ai = max(0, model.predict(feat)[0])
-                        
-                        # Pas de Scaling Factor toe
-                        # De AI herinnert zich het 'goede' jaar, wij schalen het naar de huidige realiteit
                         shop_pred = base_ai * scaling_factor
-                        
                     else:
-                        # Cold Start Fallback (gemiddelde van categorie)
+                        # Cold Start (Geen data? Gebruik Categorie gemiddelde)
                         shop_pred = avg_cat_sales.get(product.category, 5) * scaling_factor
                         if f_date.weekday() >= 5: shop_pred *= 1.4
 
-                # Opslaan voor Trend Analyse (Puur Winkelgedrag)
                 raw_shop_forecast_week += shop_pred
 
-                # --- ENGINE 2: INKOOP ADVIES (CALCULATOR) ---
-                # 1. Veiligheidsmarge voor winkel (15% in weekend, 5% in week)
+                # --- ENGINE 2: INKOOP ADVIES (Deterministisch + Groei) ---
+                
+                # 1. Veiligheidsmarge voor de winkel (buffer voor onverwachte klanten)
                 margin = 1.15 if f_date.weekday() >= 5 else 1.05
                 shop_safe = int(np.ceil(shop_pred * margin))
                 
-                # 2. Harde Online Orders
+                # 2. Harde Online Orders (Die staan al vast in DB)
                 hard_online = int(future_map.get((f_date, product.name), 0))
                 
-                # 3. Groeimodel voor Online (Hoe verder weg, hoe meer we verwachten)
-                growth_exponent = (1.15) ** (i - 1)
-                proj_online = hard_online * growth_exponent
+                # 3. Verwachte Last-Minute Online Groei
+                # We weten dat online bestellingen last-minute binnenkomen.
+                # Dit modelleert die curve obv de 'learned ratio'.
+                daily_growth_rate = 1.0 + current_online_ratio 
+                growth = min((daily_growth_rate) ** (i - 1), 4.0) 
                 
-                # 4. Ghost Fallback (Alleen voor > 2 dagen vooruit)
-                # Als er nog 0 online orders zijn, schatten we in op basis van winkelverkoop
+                proj_online = hard_online * growth
+                
+                # 4. Ghost Fallback (Verre toekomst, dag 3-7)
+                # Als er nog 0 online orders zijn voor volgende week, schat het model
+                # toch een percentage van de winkelverkoop in.
                 if i > 2:
                     uncertainty = ((i - 1) / 7.0)
-                    proj_online += (shop_pred * 0.15) * uncertainty
+                    proj_online += (shop_pred * current_online_ratio) * uncertainty
                 
                 final_day_total = shop_safe + int(np.ceil(proj_online))
                 
@@ -258,37 +281,33 @@ def generate_smart_forecast(force_refresh=False):
                 if i == 1: tomorrow_purchasing_advice = final_day_total
 
             # --- TREND ANALYSE ---
-            # Eerlijke vergelijking: (Voorspelde Winkelweek) vs (Afgelopen Winkelweek)
-            # We vergelijken 'raw_shop_forecast' (AI output) met 'prod_velocity * 7' (Realiteit)
-            
+            # Vergelijkt AI-voorspelling met Historisch gemiddelde
             recent_week_norm = prod_velocity * 7 
             trend_txt = "stabiel ➡️"
             
-            if recent_week_norm > 2: # Minimaal volume check
+            if recent_week_norm > 2: 
                 diff = raw_shop_forecast_week - recent_week_norm
-                threshold = recent_week_norm * 0.20 # 20% afwijking nodig voor trend
-                
-                if diff > threshold: trend_txt = "stijgend 📈"
-                elif diff < -threshold: trend_txt = "dalend 📉"
-            
-            elif raw_shop_forecast_week > 3:
+                if diff > (recent_week_norm * 0.20): trend_txt = "stijgend 📈"
+                elif diff < -(recent_week_norm * 0.20): trend_txt = "dalend 📉"
+            elif raw_shop_forecast_week > 3: 
                 trend_txt = "nieuw 🔥"
 
-            # Alleen toevoegen als er actie nodig is
+            # Resultaten opslaan
             if total_purchasing_advice_week > 0:
                 forecast_results.append({
                     'product_name': product.name,
                     'tomorrow': tomorrow_purchasing_advice,
                     'week_total': total_purchasing_advice_week,
                     'trend': trend_txt,
-                    # Debug Data voor Dashboard (Eerlijke cijfers)
                     'debug_4week_avg': round(recent_week_norm, 1), 
                     'debug_raw_forecast': round(raw_shop_forecast_week, 1)
                 })
 
         forecast_results.sort(key=lambda x: x['tomorrow'], reverse=True)
 
-        # 6. Ingrediënten Berekening
+        # ---------------------------------------------------------
+        # STAP E: Ingrediënten Berekening
+        # ---------------------------------------------------------
         ing_tom = {} 
         ing_week = {}
         for item in forecast_results:
@@ -316,7 +335,7 @@ def generate_smart_forecast(force_refresh=False):
         shop_tomorrow = fmt(ing_tom)
         shop_week = fmt(ing_week)
 
-        # Caching
+        # Cache update
         _cached_forecast = (forecast_results, shop_tomorrow, shop_week, start_prediction, end_prediction)
         _last_calculation_time = datetime.now()
         
@@ -325,5 +344,5 @@ def generate_smart_forecast(force_refresh=False):
     except Exception as e:
         print(f"❌ CRITICAL FORECAST ERROR: {e}")
         traceback.print_exc()
-        # Fallback bij crash: Lege lijsten zodat site blijft werken
+        # Fallback om crash te voorkomen: geef lege lijsten en datum van vandaag terug
         return [], [], [], date.today(), date.today()
