@@ -208,14 +208,17 @@ def cancel_my_order(order_id):
         flash("Deze bestelling kan niet meer geannuleerd worden.", "warning")
         return redirect(url_for('main.my_orders'))
 
+    settings = get_settings()
+    limit_days = settings.cancellation_days if settings.cancellation_days is not None else 2
+    
     days_difference = (order.pickup_date - date.today()).days
     
-    if days_difference >= 2:
+    if days_difference >= limit_days:
         order.status = 'cancelled'
         db.session.commit()
         flash(f'Bestelling #{order.id} is succesvol geannuleerd.', 'success')
     else:
-        flash('Annuleren kan tot 2 dagen voor ophaaldatum. Neem telefonisch contact op.', 'warning')
+        flash(f'Annuleren kan tot {limit_days} dagen voor ophaaldatum. Neem telefonisch contact op.', 'warning')
         
     return redirect(url_for('main.my_orders'))
 
@@ -284,18 +287,35 @@ def register():
         password = request.form.get('password')
 
         try:
+            # 1. Gebruiker aanmaken in Supabase Auth (De beveiligde kluis)
             auth_response = supabase.auth.sign_up({
-                "email": email, "password": password, "options": {"data": {"full_name": full_name}}
+                "email": email, 
+                "password": password, 
+                "options": {"data": {"full_name": full_name}}
             })
+            
+            # 2. Als dat gelukt is, gebruiker OOK opslaan in jouw eigen 'profiles' tabel
             if auth_response.user and auth_response.user.id:
                 user_id = auth_response.user.id
-                new_profile = Profile(id=user_id, full_name=full_name, is_admin=False)
+                
+                new_profile = Profile(
+                    id=user_id, 
+                    full_name=full_name, 
+                    email=email,       # <--- BELANGRIJK: Hier slaan we de e-mail dubbel op
+                    is_admin=False
+                )
+                
                 db.session.add(new_profile)
                 db.session.commit()
+                
+                # Direct inloggen of doorsturen naar home
                 return redirect(url_for('main.index'))
+                
         except Exception as e:
             db.session.rollback()
+            print(f"Registratie fout: {e}") # Handig voor debugging in je terminal
             return render_template('register.html', error=str(e))
+            
     return render_template('register.html')
 
 @main.route('/logout')
@@ -500,7 +520,7 @@ def admin_settings():
     
     settings = get_settings()
     
-    # Auto-Cleanup
+    # Auto-Cleanup: Verwijder oude gesloten dagen uit de database om vervuiling te voorkomen
     if settings.closed_dates_json:
         try:
             dates_list = json.loads(settings.closed_dates_json)
@@ -538,9 +558,22 @@ def update_settings():
     s.welcome_title = request.form.get('welcome_title')
     s.welcome_text = request.form.get('welcome_text')
     s.intro_text = request.form.get('intro_text')
+    
+    # Deadline Uur opslaan
     try:
         s.deadline_hour = int(request.form.get('deadline_hour'))
     except: pass
+
+    # --- NIEUW: Annuleringstermijn opslaan ---
+    try:
+        c_days = request.form.get('cancellation_days')
+        if c_days:
+            val = int(c_days)
+            # Zorg dat het niet negatief kan zijn
+            s.cancellation_days = val if val >= 0 else 0
+    except ValueError:
+        pass # Als het geen getal is, negeren we het
+    # -----------------------------------------
     
     s.phone_number = request.form.get('phone_number')
     s.email_address = request.form.get('email_address')
@@ -560,7 +593,7 @@ def update_settings():
     else:
         s.closed_dates_json = json.dumps([])
 
-    # Conflict Check
+    # Conflict Check: Kijk of er al orders staan op dagen die nu gesloten worden
     total_conflicts = 0
     conflict_msg = []
 

@@ -1,6 +1,26 @@
 {% extends "base.html" %}
 
 {% block content %}
+<link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
+
+<style>
+    .ts-control {
+        border-radius: 4px;
+        padding: 10px;
+        border: 1px solid #ccc;
+        font-size: 1em;
+    }
+    .ts-wrapper.focus .ts-control {
+        border-color: #593C28;
+        box-shadow: 0 0 0 3px rgba(89, 60, 40, 0.1);
+    }
+    .ts-dropdown .active {
+        background-color: #f8f1e8;
+        color: #593C28;
+    }
+</style>
+
 <div class="container" style="margin-top: 40px; margin-bottom: 60px;">
     
     <div class="admin-header-container">
@@ -45,6 +65,12 @@
                         <label class="form-label">Deadline Bestellen (Uur)</label>
                         <input type="number" name="deadline_hour" value="{{ settings.deadline_hour }}" min="0" max="23" class="form-input" style="width: 80px;">
                         <small style="color: #666;">Uur (bv. 17 voor 17:00)</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Annuleringstermijn (Dagen)</label>
+                        <input type="number" name="cancellation_days" value="{{ settings.cancellation_days if settings.cancellation_days is not none else 2 }}" min="0" max="30" class="form-input" style="width: 80px;">
+                        <small style="color: #666;">Hoeveel dagen op voorhand mag een klant annuleren?</small>
                     </div>
 
                     <div class="form-group">
@@ -175,12 +201,14 @@
                 <form action="{{ url_for('main.toggle_admin') }}" method="POST">
                     <input type="hidden" name="action" value="add">
                     <div style="margin-bottom: 10px;">
-                        <select name="user_id" class="form-input">
-                            <option value="" disabled selected>Kies een gebruiker...</option>
+                        
+                        <select name="user_id" class="searchable-select" placeholder="Typ naam om te zoeken...">
+                            <option value="">Kies een gebruiker...</option>
                             {% for user in users %}
                                 <option value="{{ user.id }}">{{ user.full_name }}</option>
                             {% endfor %}
                         </select>
+
                     </div>
                     <button type="submit" class="btn-admin-nav" style="width: 100%; justify-content: center;">Maak Admin</button>
                 </form>
@@ -203,12 +231,23 @@
         }
     }
 
-    // Flatpickr voor de vakantiedagen
+    // Scripts activeren
     document.addEventListener('DOMContentLoaded', function() {
+        
+        // 1. Flatpickr voor vakantiedagen
         flatpickr("#closed_dates_input", {
             mode: "multiple",
             dateFormat: "Y-m-d",
             locale: "nl"
+        });
+
+        // 2. TomSelect voor Admin Zoeken (AANGEPAST)
+        document.querySelectorAll('.searchable-select').forEach((el) => {
+            new TomSelect(el, {
+                create: false,
+                sortField: { field: "text", direction: "asc" },
+                placeholder: "Typ om te zoeken..."
+            });
         });
     });
 </script>

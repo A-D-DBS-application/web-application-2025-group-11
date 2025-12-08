@@ -66,6 +66,7 @@ class Profile(db.Model):
     id = db.Column(UUID(as_uuid=True), primary_key=True)
     full_name = db.Column(db.Text)
     phone_number = db.Column(db.Text)
+    email = db.Column(db.Text)
     is_admin = db.Column(db.Boolean, default=False)
     
     updated_at = db.Column(db.DateTime(timezone=True), onupdate=func.now())
@@ -155,6 +156,7 @@ class AppSettings(db.Model):
     welcome_title = db.Column(db.Text)
     welcome_text = db.Column(db.Text)
     intro_text = db.Column(db.Text)
+    cancellation_days = db.Column(db.Integer, default=2)
     deadline_hour = db.Column(db.Integer, default=17)
     hero_image_url = db.Column(db.Text)
     

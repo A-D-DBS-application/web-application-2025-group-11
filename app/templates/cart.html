@@ -8,7 +8,7 @@
     
     <div style="background-color: #fff3cd; color: #856404; padding: 10px 15px; border-radius: 8px; margin-bottom: 25px; border: 1px solid #ffeeba; font-size: 0.95em; display: flex; align-items: center; gap: 10px;">
         <span>ℹ️</span>
-        <span><strong>Info:</strong> Je kunt deze bestelling kosteloos annuleren tot <strong>2 dagen</strong> voor de gekozen ophaaldatum.</span>
+        <span><strong>Info:</strong> Je kunt deze bestelling kosteloos annuleren tot <strong>{{ settings.cancellation_days }} {{ 'dag' if settings.cancellation_days == 1 else 'dagen' }}</strong> voor de gekozen ophaaldatum.</span>
     </div>
 
     <div style="display: flex; gap: 40px; flex-wrap: wrap;">

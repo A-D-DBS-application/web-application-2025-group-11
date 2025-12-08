@@ -34,7 +34,7 @@
             
             <div style="flex-grow: 1; max-width: 300px;">
                 <label style="font-weight: bold; color: #593C28; font-size: 0.9em;">Snel zoeken (Vandaag):</label>
-                <input type="text" id="searchInput" onkeyup="applyFilters()" placeholder="Typ naam of product..." 
+                <input type="text" id="searchInput" onkeyup="applyFilters()" placeholder="Typ naam, email of product..." 
                        class="form-input" style="border-radius: 20px;">
             </div>
         </div>
@@ -45,7 +45,7 @@
                     <thead>
                         <tr style="border-bottom: 2px solid #eee; text-align: left; color: #593C28; background-color: #fff5f5;">
                             <th style="padding: 15px;">Tijd/ID</th>
-                            <th style="padding: 15px;">Klant</th>
+                            <th style="padding: 15px;">Klant & Contact</th>
                             <th style="padding: 15px;">Bestelling</th>
                             <th style="padding: 15px;">Status</th>
                             <th style="padding: 15px;">Actie</th>
@@ -54,7 +54,7 @@
                     <tbody id="orders-today-body">
                         {% for order in orders_today %}
                             <tr class="order-row status-{{ order.status }}" 
-                                data-search="{{ order.profile.full_name|lower }} {{ order.id }} {% for i in order.items %}{{ i.product.name|lower }} {% endfor %}"
+                                data-search="{{ order.profile.full_name|lower }} {{ order.profile.email|lower if order.profile.email else '' }} {{ order.id }} {% for i in order.items %}{{ i.product.name|lower }} {% endfor %}"
                                 style="border-bottom: 1px solid #f0f0f0;">
                                 <td style="padding: 15px; color: #888;">
                                     {% if order.pickup_date %}<strong>{{ order.pickup_date.strftime('%d-%m') }}</strong>{% endif %}
@@ -62,6 +62,17 @@
                                 </td>
                                 <td style="padding: 15px;">
                                     <strong>{{ order.profile.full_name }}</strong>
+                                    
+                                    <div style="font-size: 0.85em; color: #666; margin-top: 4px; line-height: 1.4;">
+                                        {% if order.profile.email %}
+                                            <div style="white-space: nowrap; margin-bottom: 2px;">✉️ {{ order.profile.email }}</div>
+                                        {% endif %}
+                                        
+                                        {% if order.profile.phone_number %}
+                                            <div style="white-space: nowrap;">📞 {{ order.profile.phone_number }}</div>
+                                        {% endif %}
+                                    </div>
+
                                     {% if order.remarks %}<br><small style="color: #E63946;">Note: {{ order.remarks }}</small>{% endif %}
                                 </td>
                                 
@@ -155,7 +166,7 @@
                 <thead>
                     <tr style="border-bottom: 2px solid #eee; text-align: left; color: #593C28;">
                         <th style="padding: 15px;">Datum</th>
-                        <th style="padding: 15px;">Klant</th>
+                        <th style="padding: 15px;">Klant & Contact</th>
                         <th style="padding: 15px;">Bestelling</th>
                         <th style="padding: 15px;">Status</th>
                         <th style="padding: 15px;">Actie</th>
@@ -165,7 +176,18 @@
                     {% for order in pagination_future.items %}
                         <tr style="border-bottom: 1px solid #eee;">
                             <td style="padding: 15px; font-weight: bold;">{{ order.pickup_date.strftime('%d-%m-%Y') }}</td>
-                            <td style="padding: 15px;">{{ order.profile.full_name }}</td>
+                            
+                            <td style="padding: 15px;">
+                                {{ order.profile.full_name }}
+                                <div style="font-size: 0.8em; color: #888; margin-top: 2px;">
+                                    {% if order.profile.email %}
+                                        <div style="margin-bottom:2px;">✉️ {{ order.profile.email }}</div>
+                                    {% endif %}
+                                    {% if order.profile.phone_number %}
+                                        <div>📞 {{ order.profile.phone_number }}</div>
+                                    {% endif %}
+                                </div>
+                            </td>
                             
                             <td style="padding: 15px;">
                                 <div class="item-tooltip-wrapper" 
@@ -239,7 +261,7 @@
                 <thead>
                     <tr style="border-bottom: 2px solid #eee; text-align: left; color: #666;">
                         <th style="padding: 15px;">Datum</th>
-                        <th style="padding: 15px;">Klant</th>
+                        <th style="padding: 15px;">Klant & Contact</th>
                         <th style="padding: 15px;">Bestelling</th>
                         <th style="padding: 15px;">Status</th>
                         <th style="padding: 15px;">Actie</th>
@@ -249,7 +271,18 @@
                     {% for order in pagination_history.items %}
                         <tr style="border-bottom: 1px solid #eee;">
                             <td style="padding: 15px;">{{ order.pickup_date.strftime('%d-%m-%Y') }}</td>
-                            <td style="padding: 15px;">{{ order.profile.full_name }}</td>
+                            
+                            <td style="padding: 15px;">
+                                {{ order.profile.full_name }}
+                                <div style="font-size: 0.8em; color: #888; margin-top: 2px;">
+                                    {% if order.profile.email %}
+                                        <div style="margin-bottom:2px;">✉️ {{ order.profile.email }}</div>
+                                    {% endif %}
+                                    {% if order.profile.phone_number %}
+                                        <div>📞 {{ order.profile.phone_number }}</div>
+                                    {% endif %}
+                                </div>
+                            </td>
                             
                             <td style="padding: 15px;">
                                 <div class="item-tooltip-wrapper" 

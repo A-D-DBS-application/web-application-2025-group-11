@@ -9,6 +9,17 @@
     </td>
     <td style="padding: 15px;">
         <strong>{{ order.profile.full_name }}</strong>
+        
+        <div style="font-size: 0.85em; color: #666; margin-top: 4px; line-height: 1.4;">
+            {% if order.profile.email %}
+                <div style="white-space: nowrap; margin-bottom: 2px;">✉️ {{ order.profile.email }}</div>
+            {% endif %}
+            
+            {% if order.profile.phone_number %}
+                <div style="white-space: nowrap;">📞 {{ order.profile.phone_number }}</div>
+            {% endif %}
+        </div>
+
         {% if order.remarks %}
             <br><small style="color: #E63946;">Note: {{ order.remarks }}</small>
         {% endif %}

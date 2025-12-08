@@ -97,8 +97,8 @@ h1, h2, h3, h4 { color: #593C28; }
 .icon-link { position: relative; display: flex; align-items: center; color: white; }
 .icon-link:hover svg { transform: scale(1.1); transition: 0.2s; }
 
-.logout-icon { margin-left: 5px; opacity: 0.8; transition: opacity 0.2s; }
-.logout-icon:hover { opacity: 1; }
+.logout-icon { margin-left: 5px; opacity: 1; transition: opacity 0.2s; }
+.logout-icon:hover { transform: scale(1.1); }
 
 .cart-icon-wrapper { margin-left: 15px; }
 .cart-badge {

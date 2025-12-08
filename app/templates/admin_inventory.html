@@ -1,6 +1,26 @@
 {% extends "base.html" %}
 
 {% block content %}
+<link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
+
+<style>
+    .ts-control {
+        border-radius: 4px;
+        padding: 10px;
+        border: 1px solid #ccc;
+        font-size: 1em;
+    }
+    .ts-wrapper.focus .ts-control {
+        border-color: #593C28;
+        box-shadow: 0 0 0 3px rgba(89, 60, 40, 0.1);
+    }
+    .ts-dropdown .active {
+        background-color: #f8f1e8;
+        color: #593C28;
+    }
+</style>
+
 <div class="container" style="margin-top: 40px; margin-bottom: 60px;">
     
     <div class="admin-header-container">
@@ -114,6 +134,7 @@
             </tbody>
         </table>
     </div>
+
     <div class="cart-container" style="margin-top: 40px; border: 2px solid #E63946;">
         <h3 style="color: #E63946; margin-bottom: 15px;">🍞 Product Afschrijving (Verspilling)</h3>
         <p style="color: #666; margin-bottom: 20px;">
@@ -125,8 +146,8 @@
             
             <div style="flex: 1; min-width: 250px;">
                 <label class="form-label">Welk Product?</label>
-                <select name="product_id" class="form-input" required>
-                    <option value="" disabled selected>Kies een product...</option>
+                <select name="product_id" class="searchable-select" required placeholder="Typ om te zoeken...">
+                    <option value="">Kies een product...</option>
                     {% for p in products %}
                         <option value="{{ p.id }}">{{ p.name }}</option>
                     {% endfor %}
@@ -155,8 +176,8 @@
             
             <div style="flex: 1; min-width: 250px;">
                 <label class="form-label">Welk Product?</label>
-                <select name="product_id" class="form-input" required>
-                    <option value="" disabled selected>Kies een product...</option>
+                <select name="product_id" class="searchable-select" required placeholder="Typ om te zoeken...">
+                    <option value="">Kies een product...</option>
                     {% for p in products %}
                         <option value="{{ p.id }}">{{ p.name }}</option>
                     {% endfor %}
@@ -174,4 +195,20 @@
         </form>
     </div>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Zoek alle selects met de class 'searchable-select'
+        document.querySelectorAll('.searchable-select').forEach((el) => {
+            new TomSelect(el, {
+                create: false, // Je mag geen nieuwe producten typen die niet bestaan
+                sortField: {
+                    field: "text",
+                    direction: "asc"
+                },
+                placeholder: "Typ om te zoeken..."
+            });
+        });
+    });
+</script>
 {% endblock %}

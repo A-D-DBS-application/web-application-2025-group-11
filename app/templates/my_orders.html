@@ -13,7 +13,7 @@
 
     <div style="background-color: #fff3cd; color: #856404; padding: 10px 15px; border-radius: 8px; margin-bottom: 30px; border: 1px solid #ffeeba; font-size: 0.95em; display: flex; align-items: center; gap: 10px;">
         <span>ℹ️</span>
-        <span><strong>Info:</strong> Bestellingen kunnen kosteloos geannuleerd worden tot <strong>2 dagen</strong> voor de ophaaldatum.</span>
+        <span><strong>Info:</strong> Bestellingen kunnen kosteloos geannuleerd worden tot <strong>{{ settings.cancellation_days }} {{ 'dag' if settings.cancellation_days == 1 else 'dagen' }}</strong> voor de ophaaldatum.</span>
     </div>
 
     <div id="filterMenu" 
@@ -74,7 +74,7 @@
 
                     {% if order.status == 'pending' %}
                         {% set days_left = (order.pickup_date - today).days %}
-                        {% if days_left >= 2 %}
+                        {% if days_left >= settings.cancellation_days %}
                             <form action="{{ url_for('main.cancel_my_order', order_id=order.id) }}" method="POST" style="margin:0;" onsubmit="return confirm('Weet je zeker dat je deze bestelling wilt annuleren?');">
                                 <button type="submit" class="btn-cancel-order" title="Annuleren">
                                     ✕ Annuleren
