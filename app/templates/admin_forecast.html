@@ -11,7 +11,7 @@
             </div>
             
             <form action="{{ url_for('main.refresh_forecast') }}" method="POST" style="margin: 0;">
-                <button type="submit" title="Nu opnieuw berekenen" 
+                <button type="submit" title="Forceer herberekening" 
                         style="background: white; border: 1px solid #ccc; border-radius: 50%; width: 40px; height: 40px; cursor: pointer; font-size: 1.2em; transition: transform 0.2s;">
                     🔄
                 </button>
@@ -36,7 +36,12 @@
     
     <div style="margin-bottom: 50px;">
         <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 15px;">
-            <h3 style="color: #593C28; margin: 0;">📋 Verwachte verkoop</h3>
+            <div>
+                <h3 style="color: #593C28; margin: 0;">📋 Te Bakken (Advies)</h3>
+                <p style="color: #666; font-size: 0.9em; margin-top: 5px; max-width: 650px; line-height: 1.4;">
+                    <strong>Het algoritme</strong> combineert de voorspelling voor de losse winkelverkoop (op basis van historie en trends) met de <strong>harde online bestellingen</strong> die al binnen zijn, inclusief een veiligheidsmarge.
+                </p>
+            </div>
             
             <div style="width: 300px;">
                 <input type="text" id="forecastSearch" onkeyup="filterForecast()" 
@@ -52,11 +57,17 @@
                     <tr style="border-bottom: 2px solid #eee; text-align: left; color: #593C28; background-color: #f9f9f9;">
                         <th style="padding: 15px;">Product</th>
                         
-                        <th style="padding: 15px; color: #999; font-size: 0.85em;" title="Gemiddelde van afgelopen 4 weken">
+                        <th style="padding: 15px; color: #999; font-size: 0.85em;" title="Wat verkopen we gemiddeld in een week (Winkel)?">
                             4-Weken Gem.
                         </th>
-                        <th style="padding: 15px; color: #999; font-size: 0.85em;" title="Zuivere AI voorspelling (zonder marge)">
-                            Voorspelling (Ruw)
+                        <th style="padding: 15px; color: #999; font-size: 0.85em;">
+                            AI Voorspelling (Winkel)
+                            <span class="item-tooltip-wrapper" 
+                                  style="font-weight: normal; cursor: help;"
+                                  onmouseenter="showTooltip(event, `Dit is de zuivere output van Engine 1 (Random Forest).<br>Het voorspelt puur de losse winkelverkoop, zonder bestellingen.`)"
+                                  onmouseleave="hideTooltip()">
+                                ℹ️
+                            </span>
                         </th>
                         
                         <th style="padding: 15px;">
@@ -65,11 +76,11 @@
                                   style="font-weight: normal; font-size: 1em; margin-left: 5px; cursor: help;"
                                   onmouseenter="showTooltip(event, `
                                     <div style='text-align:left; line-height:1.4;'>
-                                        <strong>Hoe werkt de trend?</strong><br>
-                                        Vergelijking voorspelling vs. gemiddelde afgelopen 4 weken:<br><br>
-                                        📈 <strong>Stijgend:</strong> > 5% hoger<br>
-                                        📉 <strong>Dalend:</strong> > 5% lager<br>
-                                        ➡️ <strong>Stabiel:</strong> Ongeveer gelijk
+                                        <strong>Trend Analyse:</strong><br>
+                                        Vergelijkt de AI-voorspelling met het gemiddelde van de laatste maand.<br><br>
+                                        📈 <strong>Stijgend:</strong> > 20% groei verwacht<br>
+                                        📉 <strong>Dalend:</strong> > 20% krimp verwacht<br>
+                                        ➡️ <strong>Stabiel:</strong> Normaal verloop
                                     </div>
                                   `)"
                                   onmouseleave="hideTooltip()">
@@ -78,10 +89,10 @@
                         </th>
 
                         <th style="padding: 15px; background-color: #E8F5E9; color: #2E7D32;">
-                            🌅 Voor Morgen
+                            🌅 Bakken voor Morgen
                         </th>
                         <th style="padding: 15px; color: #666;">
-                            📅 7 Dagen
+                            📅 Totaal 7 Dagen
                         </th>
                     </tr>
                 </thead>
@@ -111,7 +122,7 @@
     <div style="display: flex; gap: 40px; flex-wrap: wrap; align-items: stretch;">
         
         <div style="flex: 1; min-width: 400px; display: flex; flex-direction: column;">
-            <h3 style="color: #593C28; margin-bottom: 15px;">🛒 Nodig voor Morgen</h3>
+            <h3 style="color: #593C28; margin-bottom: 15px;">🛒 Inkooplijst (Morgen)</h3>
             <div class="cart-container" style="padding: 0; overflow: hidden; background-color: #fffaf0; border: 1px solid #e0d6cc; flex-grow: 1;">
                 <table style="width: 100%; border-collapse: collapse;">
                     <thead>
@@ -151,7 +162,7 @@
         </div>
 
         <div style="flex: 1; min-width: 400px; display: flex; flex-direction: column;">
-            <h3 style="color: #2E7D32; margin-bottom: 15px;">📅 Nodig komende 7 dagen</h3>
+            <h3 style="color: #2E7D32; margin-bottom: 15px;">📅 Inkooplijst (7 Dagen)</h3>
             <div class="cart-container" style="padding: 0; overflow: hidden; background-color: #F1F8E9; border: 1px solid #C8E6C9; flex-grow: 1; display: flex; flex-direction: column;">
                 <table style="width: 100%; border-collapse: collapse; margin-bottom: auto;">
                     <thead>
