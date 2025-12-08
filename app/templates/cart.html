@@ -11,9 +11,10 @@
         <span><strong>Info:</strong> Je kunt deze bestelling kosteloos annuleren tot <strong>{{ settings.cancellation_days }} {{ 'dag' if settings.cancellation_days == 1 else 'dagen' }}</strong> voor de gekozen ophaaldatum.</span>
     </div>
 
-    <div style="display: flex; gap: 40px; flex-wrap: wrap;">
+    <div style="display: flex; gap: 40px; flex-wrap: wrap; align-items: flex-start;">
         
         <div style="flex: 2; min-width: 300px;">
+            
             <div class="cart-container">
                 {% for item in cart_items %}
                 <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding: 15px 0;">
@@ -25,6 +26,7 @@
                         
                         <div>
                             <h4 style="margin: 0; color: #593C28;">{{ item.product.name }}</h4>
+                            
                             <div style="display: flex; align-items: center; gap: 10px; margin-top: 8px;">
                                 <form action="{{ url_for('main.decrease_from_cart', product_id=item.product.id) }}" method="POST" style="margin:0;">
                                     <button type="submit" class="quantity-btn" style="width: 25px; height: 25px;">-</button>
@@ -58,9 +60,41 @@
                     Totaal: <strong>€ {{ total_cart_price }}</strong>
                 </div>
             </div>
+
+            {% if recommendations %}
+            <div class="cart-container" style="margin-top: 30px; background-color: #fffdf9;">
+                <h3 style="color: #593C28; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+                    💡 Vaak samen gekocht
+                </h3>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 20px;">
+                    {% for prod in recommendations %}
+                        <div style="background: white; border: 1px solid #eee; border-radius: 10px; padding: 15px; text-align: center; transition: transform 0.2s; display: flex; flex-direction: column; justify-content: space-between; height: 100%; box-shadow: 0 2px 5px rgba(0,0,0,0.03);">
+                            
+                            <div style="margin-bottom: 10px;">
+                                <img src="{{ prod.image_url | product_img }}" style="width: 100%; height: 120px; object-fit: contain; border-radius: 8px; margin-bottom: 10px; background-color: #fff;">
+                                
+                                <div style="font-weight: bold; color: #593C28; font-size: 0.95em; line-height: 1.2; margin-bottom: 5px; min-height: 2.4em; display: flex; align-items: center; justify-content: center;">
+                                    {{ prod.name }}
+                                </div>
+                                <div style="color: #666; font-size: 0.9em;">€ {{ prod.price }}</div>
+                            </div>
+                            
+                            <form action="{{ url_for('main.add_to_cart', product_id=prod.id) }}" method="POST" style="width: 100%;">
+                                <input type="hidden" name="quantity" value="1">
+                                <button type="submit" class="btn-admin-nav" style="width: 100%; justify-content: center; font-size: 0.85em; padding: 8px; background-color: white; color: #593C28; border: 1px solid #593C28;">
+                                    + Toevoegen
+                                </button>
+                            </form>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
         </div>
 
-        <div style="flex: 1; min-width: 300px;">
+        <div style="flex: 1; min-width: 300px; position: sticky; top: 20px;">
             <div class="checkout-container">
                 <h3 style="color: #593C28; margin-bottom: 20px;">Afrekenen</h3>
                 <form action="{{ url_for('main.checkout') }}" method="POST">
@@ -105,7 +139,6 @@
     document.addEventListener('DOMContentLoaded', function() {
         const dateInput = document.getElementById('pickup_date');
         if (dateInput) {
-            // Data veilig uitlezen uit attributen
             const minDate = dateInput.dataset.minDate;
             const closedDays = JSON.parse(dateInput.dataset.closedDays || '[]');
             const specificClosedDates = JSON.parse(dateInput.dataset.specificDates || '[]');

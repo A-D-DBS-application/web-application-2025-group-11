@@ -16,6 +16,7 @@ from .models import Product, Profile, Order, OrderItem, Ingredient, ProductIngre
 from . import supabase
 # Importeer je AI functie
 from .analytics import generate_smart_forecast
+from .analytics import get_cart_recommendations
 
 # ==============================================================================
 #  CONFIGURATIE & BLUEPRINT
@@ -365,9 +366,13 @@ def view_cart():
     cart_dict = session.get('cart', {})
     products_in_cart = []
     total_cart_price = 0
+    
+    # We houden de ID's bij voor de recommendation engine
+    current_ids = []
 
     if cart_dict:
         product_ids = [int(id) for id in cart_dict.keys()]
+        current_ids = product_ids 
         products = Product.query.filter(Product.id.in_(product_ids)).all()
         for product in products:
             quantity = cart_dict[str(product.id)]
@@ -375,6 +380,19 @@ def view_cart():
             total_cart_price += total_for_product
             products_in_cart.append({'product': product, 'quantity': quantity, 'total_price': total_for_product})
     
+    # --- NIEUW: Suggesties Ophalen (Market Basket Analysis) ---
+    recommendations = []
+    if current_ids:
+        try:
+            # We roepen hier het algoritme aan dat we in analytics.py hebben gemaakt
+            suggested_ids = get_cart_recommendations(current_ids)
+            if suggested_ids:
+                recommendations = Product.query.filter(Product.id.in_(suggested_ids)).all()
+        except Exception as e:
+            # Als het algoritme faalt (bijv. lege database), mag de winkelwagen niet crashen
+            print(f"Recommendation Error: {e}")
+    # ----------------------------------------------------------
+
     settings = get_settings()
     deadline = settings.deadline_hour if settings.deadline_hour else 17
     
@@ -404,6 +422,7 @@ def view_cart():
     return render_template('cart.html', 
                            cart_items=products_in_cart, 
                            total_cart_price=total_cart_price, 
+                           recommendations=recommendations, # <--- Deze sturen we nu mee naar de HTML
                            min_date_str=min_date_str,
                            closed_days=closed_days,
                            specific_closed_dates=specific_closed_dates)

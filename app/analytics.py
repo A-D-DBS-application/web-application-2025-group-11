@@ -346,3 +346,52 @@ def generate_smart_forecast(force_refresh=False):
         traceback.print_exc()
         # Fallback om crash te voorkomen: geef lege lijsten en datum van vandaag terug
         return [], [], [], date.today(), date.today()
+
+# ==============================================================================
+#  MARKET BASKET ANALYSIS (Cart Recommendations)
+# ==============================================================================
+def get_cart_recommendations(current_cart_ids):
+    """
+    Berekent productsuggesties op basis van 'Market Basket Analysis'.
+    Kijkt welke producten vaak samen worden gekocht met de items in het huidige mandje.
+    """
+    if not current_cart_ids:
+        return []
+
+    # 1. Haal alle orderregels op uit het verleden
+    # We hebben alleen de order_id en product_id nodig
+    sql = text("""
+        SELECT order_id, product_id 
+        FROM order_items 
+    """)
+    
+    with db.engine.connect() as conn:
+        df = pd.read_sql(sql, conn)
+
+    if df.empty: return []
+
+    # 2. Filter: Zoek orders die minstens één van de huidige cart-items bevatten
+    # (Dit zijn de 'relevante orders')
+    relevant_orders = df[df['product_id'].isin(current_cart_ids)]['order_id'].unique()
+    
+    if len(relevant_orders) == 0:
+        # Geen historie gevonden voor deze items? Geef populaire items terug (fallback)
+        top_items = df['product_id'].value_counts().head(3).index.tolist()
+        # Filter items die al in de cart zitten eruit
+        return [pid for pid in top_items if pid not in current_cart_ids]
+
+    # 3. Kijk wat er NOG MEER in die orders zat
+    # We pakken alle regels van de relevante orders
+    co_occurring_items = df[df['order_id'].isin(relevant_orders)]
+    
+    # 4. Tel hoe vaak elk ander product voorkomt
+    # We filteren de items die we al in ons mandje hebben eruit (~ betekent NOT)
+    recommendations = co_occurring_items[~co_occurring_items['product_id'].isin(current_cart_ids)]
+    
+    if recommendations.empty:
+        return []
+
+    # 5. Top 3 meest voorkomende
+    top_3_ids = recommendations['product_id'].value_counts().head(3).index.tolist()
+    
+    return top_3_ids
