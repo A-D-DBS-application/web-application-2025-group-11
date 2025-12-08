@@ -3,6 +3,7 @@ import numpy as np
 import holidays
 import json
 import traceback
+import math
 from datetime import datetime, date, timedelta
 from decimal import Decimal
 from sklearn.ensemble import RandomForestRegressor
@@ -350,48 +351,75 @@ def generate_smart_forecast(force_refresh=False):
 # ==============================================================================
 #  MARKET BASKET ANALYSIS (Cart Recommendations)
 # ==============================================================================
+
 def get_cart_recommendations(current_cart_ids):
     """
-    Berekent productsuggesties op basis van 'Market Basket Analysis'.
-    Kijkt welke producten vaak samen worden gekocht met de items in het huidige mandje.
+    CONTENT-BASED RECOMMENDATION ENGINE (Smaak-Matcher)
+    Bouwt een smaakprofiel op basis van categorie en ingrediënten.
     """
     if not current_cart_ids:
         return []
 
-    # 1. Haal alle orderregels op uit het verleden
-    # We hebben alleen de order_id en product_id nodig
-    sql = text("""
-        SELECT order_id, product_id 
-        FROM order_items 
-    """)
-    
-    with db.engine.connect() as conn:
-        df = pd.read_sql(sql, conn)
+    # 1. Haal de producten in het mandje op
+    cart_products = Product.query.filter(Product.id.in_(current_cart_ids)).all()
+    if not cart_products: return []
 
-    if df.empty: return []
+    # 2. Bouw het "Smaakprofiel"
+    active_categories = set()
+    active_ingredients = set()
+    
+    for p in cart_products:
+        if p.category:
+            active_categories.add(p.category)
+        for pi in p.ingredients:
+            active_ingredients.add(pi.ingredient.id)
 
-    # 2. Filter: Zoek orders die minstens één van de huidige cart-items bevatten
-    # (Dit zijn de 'relevante orders')
-    relevant_orders = df[df['product_id'].isin(current_cart_ids)]['order_id'].unique()
+    # 3. Haal kandidaten op
+    candidates = Product.query.filter(Product.id.notin_(current_cart_ids), Product.is_available==True).all()
     
-    if len(relevant_orders) == 0:
-        # Geen historie gevonden voor deze items? Geef populaire items terug (fallback)
-        top_items = df['product_id'].value_counts().head(3).index.tolist()
-        # Filter items die al in de cart zitten eruit
-        return [pid for pid in top_items if pid not in current_cart_ids]
+    scored_candidates = []
+    today = date.today()
 
-    # 3. Kijk wat er NOG MEER in die orders zat
-    # We pakken alle regels van de relevante orders
-    co_occurring_items = df[df['order_id'].isin(relevant_orders)]
-    
-    # 4. Tel hoe vaak elk ander product voorkomt
-    # We filteren de items die we al in ons mandje hebben eruit (~ betekent NOT)
-    recommendations = co_occurring_items[~co_occurring_items['product_id'].isin(current_cart_ids)]
-    
-    if recommendations.empty:
-        return []
+    # 4. Het Puntensysteem
+    for prod in candidates:
+        # Check: Is het product uberhaupt beschikbaar?
+        if not get_season_status(prod, today):
+            continue
 
-    # 5. Top 3 meest voorkomende
-    top_3_ids = recommendations['product_id'].value_counts().head(3).index.tolist()
+        score = 0
+        
+        # A. Categorie Match (+10)
+        if prod.category in active_categories:
+            score += 10
+            
+        # B. Ingrediënt Match (+2)
+        for pi in prod.ingredients:
+            if pi.ingredient.id in active_ingredients:
+                score += 2
+        
+        # C. Strafpunten voor bulk (+/-)
+        if prod.category == 'pistoles':
+            score -= 2
+        elif prod.category == 'brood':
+            score -= 1
+
+        # D. SEIZOENS-BOOST (+5) (NIEUW!)
+        # Als het product specifieke datums heeft (dus geen 'altijd beschikbaar' product),
+        # en het door de check hierboven is gekomen, dan is het een "Special".
+        # Mensen kopen specials graag als extraatje.
+        if prod.season_start:
+            score += 4
+
+        if score > 0:
+            scored_candidates.append((prod, score))
+
+    # 5. COMMERCIËLE SORTERING (Tie-Breaker Logic)
+    def sort_key(item):
+        prod, score = item
+        is_luxe = 1 if prod.category in ['taart', 'koffiekoeken', 'gebak', 'seizoensgebak'] else 0
+        price = float(prod.price)
+        return (score, is_luxe, price)
+
+    scored_candidates.sort(key=sort_key, reverse=True)
     
-    return top_3_ids
+    return [item[0].id for item in scored_candidates[:3]]
