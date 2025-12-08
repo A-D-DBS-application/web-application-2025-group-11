@@ -3,12 +3,17 @@
 {% block content %}
 <div class="container" style="margin-top: 50px; max-width: 900px; margin-bottom: 80px;">
     
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; flex-wrap: wrap; gap: 20px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 20px;">
         <h1 style="margin: 0; color: #593C28;">Mijn Bestellingen</h1>
         
         <button onclick="toggleFilters()" class="btn-admin-nav" style="background: white; color: #593C28; border: 2px solid #593C28; cursor: pointer;">
             🔍 Zoeken & Filteren
         </button>
+    </div>
+
+    <div style="background-color: #fff3cd; color: #856404; padding: 10px 15px; border-radius: 8px; margin-bottom: 30px; border: 1px solid #ffeeba; font-size: 0.95em; display: flex; align-items: center; gap: 10px;">
+        <span>ℹ️</span>
+        <span><strong>Info:</strong> Bestellingen kunnen kosteloos geannuleerd worden tot <strong>2 dagen</strong> voor de ophaaldatum.</span>
     </div>
 
     <div id="filterMenu" 

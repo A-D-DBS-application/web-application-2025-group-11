@@ -724,6 +724,19 @@ def restock_ingredient():
     except: db.session.rollback()
     return redirect(url_for('main.admin_inventory'))
 
+@main.route('/admin/inventory/refresh', methods=['POST'])
+def refresh_inventory_forecast():
+    if not check_admin(): return redirect(url_for('main.index'))
+    try:
+        # Forceer de AI om alles opnieuw te berekenen (cache negeren)
+        generate_smart_forecast(force_refresh=True)
+        flash("Prognose ververst. De kolom 'Nodig' is weer up-to-date.", 'success')
+    except Exception as e:
+        flash(f"Fout bij verversen: {e}", 'danger')
+    
+    # Keer terug naar de voorraadpagina (niet de forecast pagina)
+    return redirect(url_for('main.admin_inventory'))
+
 @main.route('/admin/waste', methods=['POST'])
 def waste_ingredient():
     if not check_admin(): return redirect(url_for('main.index'))

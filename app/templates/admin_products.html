@@ -20,7 +20,18 @@
     <div style="display: flex; gap: 40px; flex-wrap: wrap;">
         
         <div style="flex: 3; min-width: 500px;">
-            <h3 style="color: #593C28; margin-bottom: 15px;">Huidig Assortiment (A-->Z)</h3>
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h3 style="color: #593C28; margin: 0;">Huidig Assortiment ({{ products|length }})</h3>
+                
+                <div style="position: relative;">
+                    <input type="text" id="productSearchInput" 
+                           placeholder="🔍 Typ om te filteren..." 
+                           class="form-input" 
+                           style="padding: 8px 15px; border-radius: 20px; width: 250px; border: 1px solid #ccc;">
+                </div>
+            </div>
+
             <div class="cart-container table-responsive" style="padding: 0;">
                 <table style="width: 100%; border-collapse: collapse;">
                     <thead>
@@ -31,9 +42,9 @@
                             <th style="padding: 15px; width: 20%;">Prijs & Actie</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="productTableBody">
                         {% for product in products %}
-                        <tr style="border-bottom: 1px solid #f0f0f0; vertical-align: top;">
+                        <tr class="product-row" data-search="{{ product.name|lower }} {{ product.category|lower }}" style="border-bottom: 1px solid #f0f0f0; vertical-align: top;">
                             <td style="padding: 15px;">
                                 <div style="display: flex; flex-direction: column; gap: 8px; align-items: center;">
                                     <img src="{{ product.image_url | product_img }}" width="70" height="70" style="border-radius: 6px; object-fit: cover; border: 1px solid #ddd;">
@@ -105,6 +116,10 @@
                         {% endfor %}
                     </tbody>
                 </table>
+                
+                <div id="noProductsFound" style="display: none; padding: 20px; text-align: center; color: #888;">
+                    Geen producten gevonden die aan je zoekterm voldoen.
+                </div>
             </div>
         </div>
 
@@ -167,4 +182,28 @@
         </div>
     </div>
 </div>
+
+<script>
+    // FRONTEND FILTER SCRIPT
+    document.getElementById('productSearchInput').addEventListener('keyup', function() {
+        let filter = this.value.toLowerCase();
+        let rows = document.querySelectorAll('.product-row');
+        let hasVisible = false;
+
+        rows.forEach(row => {
+            // We zoeken in de data-search attribuut (bevat naam + categorie)
+            let text = row.getAttribute('data-search');
+            
+            if (text.includes(filter)) {
+                row.style.display = '';
+                hasVisible = true;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        // Toon melding als er niks gevonden is
+        document.getElementById('noProductsFound').style.display = hasVisible ? 'none' : 'block';
+    });
+</script>
 {% endblock %}
