@@ -3,7 +3,7 @@ import time
 import pandas as pd
 import json
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, make_response
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from datetime import datetime, timedelta, date
 from werkzeug.utils import secure_filename
 from sqlalchemy import func, text
@@ -54,8 +54,7 @@ def get_categories():
     if settings.product_categories_json:
         try:
             return json.loads(settings.product_categories_json)
-        except Exception as e:
-            print(f"⚠️ Error parsing categories JSON: {e}")
+        except:
             return defaults
     return defaults
 
@@ -103,6 +102,7 @@ def inject_global_vars():
     current_year = datetime.now().year
     today_date = date.today()
     
+    # HIER IS DE WIJZIGING: Categorieën globaal beschikbaar maken
     categories = get_categories()
 
     return dict(
@@ -121,6 +121,8 @@ def inject_global_vars():
 
 @main.route('/')
 def index():
+    # Categorieën worden nu via context processor geladen, 
+    # maar we halen ze hier ook op voor de filter logica
     categories_list = get_categories()
     
     category_filter = request.args.get('category')
@@ -173,8 +175,7 @@ def my_orders():
         try:
             date_obj = datetime.strptime(f_date, '%Y-%m-%d').date()
             query = query.filter(Order.pickup_date == date_obj)
-        except ValueError: 
-            pass # Geen geldige datum, negeer filter
+        except ValueError: pass
 
     if f_product:
         query = query.join(OrderItem).join(Product).filter(Product.name.ilike(f"%{f_product}%")).distinct()
@@ -182,8 +183,7 @@ def my_orders():
     if f_price:
         try:
             query = query.filter(Order.total_price >= Decimal(f_price))
-        except (ValueError, InvalidOperation): 
-            pass # Geen geldig bedrag, negeer filter
+        except: pass
 
     pagination = query.order_by(Order.pickup_date.desc()).paginate(page=page, per_page=5, error_out=False)
     
@@ -199,33 +199,27 @@ def my_orders():
 def cancel_my_order(order_id):
     if 'user_id' not in session: return redirect(url_for('main.login'))
     
-    try:
-        order = Order.query.get_or_404(order_id)
-        
-        if str(order.user_id) != session['user_id']:
-            flash("Je kunt alleen je eigen bestellingen annuleren.", "danger")
-            return redirect(url_for('main.my_orders'))
-        
-        if order.status != 'pending':
-            flash("Deze bestelling kan niet meer geannuleerd worden.", "warning")
-            return redirect(url_for('main.my_orders'))
+    order = Order.query.get_or_404(order_id)
+    
+    if str(order.user_id) != session['user_id']:
+        flash("Je kunt alleen je eigen bestellingen annuleren.", "danger")
+        return redirect(url_for('main.my_orders'))
+    
+    if order.status != 'pending':
+        flash("Deze bestelling kan niet meer geannuleerd worden.", "warning")
+        return redirect(url_for('main.my_orders'))
 
-        settings = get_settings()
-        limit_days = settings.cancellation_days if settings.cancellation_days is not None else 2
-        
-        days_difference = (order.pickup_date - date.today()).days
-        
-        if days_difference >= limit_days:
-            order.status = 'cancelled'
-            db.session.commit()
-            flash(f'Bestelling #{order.id} is succesvol geannuleerd.', 'success')
-        else:
-            flash(f'Annuleren kan tot {limit_days} dagen voor ophaaldatum. Neem telefonisch contact op.', 'warning')
-            
-    except Exception as e:
-        db.session.rollback()
-        print(f"❌ Cancel error: {e}")
-        flash("Er ging iets mis bij het annuleren.", "danger")
+    settings = get_settings()
+    limit_days = settings.cancellation_days if settings.cancellation_days is not None else 2
+    
+    days_difference = (order.pickup_date - date.today()).days
+    
+    if days_difference >= limit_days:
+        order.status = 'cancelled'
+        db.session.commit()
+        flash(f'Bestelling #{order.id} is succesvol geannuleerd.', 'success')
+    else:
+        flash(f'Annuleren kan tot {limit_days} dagen voor ophaaldatum. Neem telefonisch contact op.', 'warning')
         
     return redirect(url_for('main.my_orders'))
 
@@ -279,7 +273,7 @@ def login():
             
             user = Profile.query.get(response.user.id)
             if user and user.is_admin:
-                return redirect(url_for('main.admin_dashboard'))
+                return redirect(url_for('main.admin_orders'))
             
             return redirect(url_for('main.index'))
         except Exception:
@@ -294,32 +288,33 @@ def register():
         password = request.form.get('password')
 
         try:
-            # 1. Gebruiker aanmaken in Supabase Auth
+            # 1. Gebruiker aanmaken in Supabase Auth (De beveiligde kluis)
             auth_response = supabase.auth.sign_up({
                 "email": email, 
                 "password": password, 
                 "options": {"data": {"full_name": full_name}}
             })
             
-            # 2. Gebruiker OOK opslaan in eigen 'profiles' tabel
+            # 2. Als dat gelukt is, gebruiker OOK opslaan in jouw eigen 'profiles' tabel
             if auth_response.user and auth_response.user.id:
                 user_id = auth_response.user.id
                 
                 new_profile = Profile(
                     id=user_id, 
                     full_name=full_name, 
-                    email=email,
+                    email=email,       # <--- BELANGRIJK: Hier slaan we de e-mail dubbel op
                     is_admin=False
                 )
                 
                 db.session.add(new_profile)
                 db.session.commit()
                 
+                # Direct inloggen of doorsturen naar home
                 return redirect(url_for('main.index'))
                 
         except Exception as e:
             db.session.rollback()
-            print(f"Registratie fout: {e}") 
+            print(f"Registratie fout: {e}") # Handig voor debugging in je terminal
             return render_template('register.html', error=str(e))
             
     return render_template('register.html')
@@ -337,29 +332,26 @@ def profile():
     user = Profile.query.get(session['user_id'])
     
     if request.method == 'POST':
-        try:
-            full_name = request.form.get('full_name')
-            phone = request.form.get('phone_number')
-            
-            if full_name: user.full_name = full_name
-            if phone: user.phone_number = phone
-            
-            new_password = request.form.get('new_password')
-            if new_password and len(new_password) > 0:
-                if len(new_password) < 6:
-                    flash('Nieuw wachtwoord moet minstens 6 tekens zijn.', 'danger')
-                else:
+        full_name = request.form.get('full_name')
+        phone = request.form.get('phone_number')
+        
+        if full_name: user.full_name = full_name
+        if phone: user.phone_number = phone
+        
+        new_password = request.form.get('new_password')
+        if new_password and len(new_password) > 0:
+            if len(new_password) < 6:
+                flash('Nieuw wachtwoord moet minstens 6 tekens zijn.', 'danger')
+            else:
+                try:
                     supabase.auth.update_user({"password": new_password})
                     flash('Profiel én wachtwoord gewijzigd!', 'success')
-            else:
-                flash('Profielgegevens opgeslagen.', 'success')
-                
-            db.session.commit()
-        except Exception as e:
-            db.session.rollback()
-            print(f"Profiel update fout: {e}")
-            flash('Kon profiel niet opslaan.', 'danger')
+                except Exception as e:
+                    flash(f'Wachtwoord kon niet gewijzigd worden: {e}', 'danger')
+        else:
+            flash('Profielgegevens opgeslagen.', 'success')
             
+        db.session.commit()
         return redirect(url_for('main.profile'))
 
     return render_template('profile.html', user=user)
@@ -402,6 +394,7 @@ def view_cart():
                     ingredients_needed[rule.ingredient.id] = {'obj': rule.ingredient, 'amount': needed}
         
         # Check nu de totalen tegen de 'vrije' voorraad
+        # Let op: stock_quantity in DB is wat er nu beschikbaar is (reeds bestelde items zijn er al af)
         for ing_id, data in ingredients_needed.items():
             if data['obj'].stock_quantity < data['amount']:
                 shortage_ingredients.append(data['obj'].name)
@@ -436,15 +429,13 @@ def view_cart():
                 if schedule.get(str(i), {}).get('closed'):
                     js_day = i + 1 if i < 6 else 0
                     closed_days.append(js_day)
-        except Exception as e: 
-            print(f"Error parsing weekly schedule: {e}")
+        except: pass
     
     specific_closed_dates = []
     if settings.closed_dates_json:
         try:
             specific_closed_dates = json.loads(settings.closed_dates_json)
-        except Exception as e: 
-            print(f"Error parsing closed dates: {e}")
+        except: pass
 
     return render_template('cart.html', 
                            cart_items=products_in_cart, 
@@ -453,15 +444,14 @@ def view_cart():
                            min_date_str=min_date_str,
                            closed_days=closed_days,
                            specific_closed_dates=specific_closed_dates,
-                           shortage_ingredients=shortage_ingredients)
+                           shortage_ingredients=shortage_ingredients) # Geef tekorten mee
 
 @main.route('/cart/add/<int:product_id>', methods=['POST'])
 def add_to_cart(product_id):
     try:
         quantity = int(request.form.get('quantity', '1'))
         if quantity < 1: quantity = 1
-    except ValueError: 
-        quantity = 1
+    except: quantity = 1
     
     cart = session.get('cart', {})
     cart[str(product_id)] = cart.get(str(product_id), 0) + quantity
@@ -522,7 +512,7 @@ def checkout():
         if should_check_stock:
             for ing_id, data in ingredients_needed.items():
                 if data['obj'].stock_quantity < data['amount']:
-                    flash(f"Te weinig voorraad voor {data['obj'].name}. Kies een latere datum (>2 dagen) of neem een ander product.", 'danger')
+                    flash(f"Te weinig voorraad voor {data['obj'].name}. Kies een latere datum (>3 dagen) of neem een ander product.", 'danger')
                     return redirect(url_for('main.view_cart'))
         
         total_price = sum(products_map[pid].price * Decimal(qty) for pid, qty in cart_dict.items())
@@ -539,7 +529,6 @@ def checkout():
         for pid, qty in cart_dict.items():
             db.session.add(OrderItem(order_id=new_order.id, product_id=pid, quantity=qty, unit_price_at_order=products_map[pid].price))
         
-        # Voorraad afboeken
         for ing_id, data in ingredients_needed.items():
             data['obj'].stock_quantity -= data['amount']
             db.session.add(data['obj'])
@@ -552,8 +541,7 @@ def checkout():
         
     except Exception as e:
         db.session.rollback()
-        print(f"Checkout Error: {e}")
-        flash('Er ging iets mis met de bestelling. Probeer opnieuw.', 'danger')
+        flash('Er ging iets mis met de bestelling.', 'danger')
         return redirect(url_for('main.view_cart'))
 
 
@@ -570,7 +558,7 @@ def admin_settings():
     
     settings = get_settings()
     
-    # Auto-Cleanup: Verwijder oude gesloten dagen uit de database
+    # Auto-Cleanup: Verwijder oude gesloten dagen uit de database om vervuiling te voorkomen
     if settings.closed_dates_json:
         try:
             dates_list = json.loads(settings.closed_dates_json)
@@ -590,6 +578,7 @@ def admin_settings():
 
     days_names = ['Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag', 'Zondag']
     
+    # Categorieën meegeven
     categories = get_categories()
 
     return render_template('admin_settings.html', 
@@ -603,111 +592,108 @@ def admin_settings():
 def update_settings():
     if not check_admin(): return redirect(url_for('main.index'))
     
+    s = get_settings()
+    s.welcome_title = request.form.get('welcome_title')
+    s.welcome_text = request.form.get('welcome_text')
+    s.intro_text = request.form.get('intro_text')
+    
+    # Deadline Uur opslaan
     try:
-        s = get_settings()
-        s.welcome_title = request.form.get('welcome_title')
-        s.welcome_text = request.form.get('welcome_text')
-        s.intro_text = request.form.get('intro_text')
-        
-        # Deadline Uur opslaan
+        s.deadline_hour = int(request.form.get('deadline_hour'))
+    except: pass
+
+    # --- NIEUW: Annuleringstermijn opslaan ---
+    try:
+        c_days = request.form.get('cancellation_days')
+        if c_days:
+            val = int(c_days)
+            # Zorg dat het niet negatief kan zijn
+            s.cancellation_days = val if val >= 0 else 0
+    except ValueError:
+        pass # Als het geen getal is, negeren we het
+    # -----------------------------------------
+    
+    s.phone_number = request.form.get('phone_number')
+    s.email_address = request.form.get('email_address')
+    s.address_text = request.form.get('address_text')
+    
+    hero_file = request.files.get('hero_image_file')
+    if hero_file and hero_file.filename != '':
+        url = upload_image_to_supabase(hero_file)
+        if url:
+            s.hero_image_url = url
+
+    raw_dates = request.form.get('closed_dates_input')
+    date_list = []
+    if raw_dates:
+        date_list = [d.strip() for d in raw_dates.split(',') if d.strip()]
+        s.closed_dates_json = json.dumps(date_list)
+    else:
+        s.closed_dates_json = json.dumps([])
+
+    # Conflict Check: Kijk of er al orders staan op dagen die nu gesloten worden
+    total_conflicts = 0
+    conflict_msg = []
+
+    if date_list:
         try:
-            s.deadline_hour = int(request.form.get('deadline_hour'))
-        except ValueError: pass
+            date_objs = [datetime.strptime(d, '%Y-%m-%d').date() for d in date_list]
+            specific_conflicts = Order.query.filter(
+                Order.pickup_date.in_(date_objs),
+                Order.status.notin_(['picked_up', 'cancelled'])
+            ).count()
+            
+            if specific_conflicts > 0:
+                total_conflicts += specific_conflicts
+                conflict_msg.append(f"{specific_conflicts} op vakantiedagen")
+        except Exception as e:
+            print(f"Specific conflict check error: {e}")
 
-        # Annuleringstermijn
+    new_schedule = {}
+    formatted_text = []
+    short_names = ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo']
+    closed_weekdays = [] 
+
+    for i in range(7):
+        is_closed = request.form.get(f'day_{i}_closed') == 'on'
+        text_hours = request.form.get(f'day_{i}_text')
+        new_schedule[str(i)] = {'closed': is_closed, 'text': text_hours}
+        
+        status = "GESLOTEN" if is_closed else text_hours
+        formatted_text.append(f"{short_names[i]}: {status}")
+        
+        if is_closed:
+            closed_weekdays.append(i)
+
+    if closed_weekdays:
         try:
-            c_days = request.form.get('cancellation_days')
-            if c_days:
-                val = int(c_days)
-                s.cancellation_days = val if val >= 0 else 0
-        except ValueError: pass
-        
-        s.phone_number = request.form.get('phone_number')
-        s.email_address = request.form.get('email_address')
-        s.address_text = request.form.get('address_text')
-        
-        hero_file = request.files.get('hero_image_file')
-        if hero_file and hero_file.filename != '':
-            url = upload_image_to_supabase(hero_file)
-            if url:
-                s.hero_image_url = url
-
-        raw_dates = request.form.get('closed_dates_input')
-        date_list = []
-        if raw_dates:
-            date_list = [d.strip() for d in raw_dates.split(',') if d.strip()]
-            s.closed_dates_json = json.dumps(date_list)
-        else:
-            s.closed_dates_json = json.dumps([])
-
-        # Conflict Check
-        total_conflicts = 0
-        conflict_msg = []
-
-        if date_list:
-            try:
-                date_objs = [datetime.strptime(d, '%Y-%m-%d').date() for d in date_list]
-                specific_conflicts = Order.query.filter(
-                    Order.pickup_date.in_(date_objs),
-                    Order.status.notin_(['picked_up', 'cancelled'])
-                ).count()
-                
-                if specific_conflicts > 0:
-                    total_conflicts += specific_conflicts
-                    conflict_msg.append(f"{specific_conflicts} op vakantiedagen")
-            except Exception as e:
-                print(f"Specific conflict check error: {e}")
-
-        new_schedule = {}
-        formatted_text = []
-        short_names = ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo']
-        closed_weekdays = [] 
-
-        for i in range(7):
-            is_closed = request.form.get(f'day_{i}_closed') == 'on'
-            text_hours = request.form.get(f'day_{i}_text')
-            new_schedule[str(i)] = {'closed': is_closed, 'text': text_hours}
+            future_orders = Order.query.filter(
+                Order.pickup_date >= date.today(),
+                Order.status.notin_(['picked_up', 'cancelled'])
+            ).all()
             
-            status = "GESLOTEN" if is_closed else text_hours
-            formatted_text.append(f"{short_names[i]}: {status}")
+            weekly_conflicts = 0
+            for order in future_orders:
+                if order.pickup_date.weekday() in closed_weekdays:
+                    weekly_conflicts += 1
             
-            if is_closed:
-                closed_weekdays.append(i)
+            if weekly_conflicts > 0:
+                total_conflicts += weekly_conflicts
+                conflict_msg.append(f"{weekly_conflicts} op vaste sluitingsdagen")
 
-        if closed_weekdays:
-            try:
-                future_orders = Order.query.filter(
-                    Order.pickup_date >= date.today(),
-                    Order.status.notin_(['picked_up', 'cancelled'])
-                ).all()
-                
-                weekly_conflicts = 0
-                for order in future_orders:
-                    if order.pickup_date.weekday() in closed_weekdays:
-                        weekly_conflicts += 1
-                
-                if weekly_conflicts > 0:
-                    total_conflicts += weekly_conflicts
-                    conflict_msg.append(f"{weekly_conflicts} op vaste sluitingsdagen")
+        except Exception as e:
+            print(f"Weekly conflict check error: {e}")
 
-            except Exception as e:
-                print(f"Weekly conflict check error: {e}")
-
-        s.weekly_schedule_json = json.dumps(new_schedule)
-        s.opening_hours = "\n".join(formatted_text)
-        
-        db.session.commit()
-        
-        if total_conflicts > 0:
-            details = " & ".join(conflict_msg)
-            flash(f'⚠️ LET OP: Je rooster botst met bestaande bestellingen! ({details}). Contacteer deze klanten.', 'warning')
-        else:
-            flash('Instellingen opgeslagen.', 'success')
-            
-    except Exception as e:
-        db.session.rollback()
-        print(f"Settings update error: {e}")
-        flash("Kon instellingen niet opslaan.", "danger")
+    s.weekly_schedule_json = json.dumps(new_schedule)
+    s.opening_hours = "\n".join(formatted_text)
+    
+    db.session.commit()
+    
+    if total_conflicts > 0:
+        details = " & ".join(conflict_msg)
+        flash(f'⚠️ LET OP: Je rooster botst met bestaande bestellingen! ({details}). Contacteer deze klanten.', 'warning')
+    else:
+        flash('Instellingen opgeslagen.', 'success')
         
     return redirect(url_for('main.admin_settings'))
 
@@ -715,25 +701,20 @@ def update_settings():
 def toggle_admin():
     if not check_admin(): return redirect(url_for('main.index'))
     
-    try:
-        user_id = request.form.get('user_id')
-        action = request.form.get('action')
-        user = Profile.query.get(user_id)
-        if user:
-            if action == 'add':
-                user.is_admin = True
-                flash(f'{user.full_name} is nu Admin.', 'success')
-            elif action == 'remove':
-                if str(user.id) == session['user_id']:
-                    flash('Je kan jezelf niet ontslaan!', 'danger')
-                else:
-                    user.is_admin = False
-                    flash(f'{user.full_name} is geen Admin meer.', 'warning')
-            db.session.commit()
-    except Exception as e:
-        db.session.rollback()
-        print(f"Admin toggle error: {e}")
-        flash("Actie mislukt.", "danger")
+    user_id = request.form.get('user_id')
+    action = request.form.get('action')
+    user = Profile.query.get(user_id)
+    if user:
+        if action == 'add':
+            user.is_admin = True
+            flash(f'{user.full_name} is nu Admin.', 'success')
+        elif action == 'remove':
+            if str(user.id) == session['user_id']:
+                flash('Je kan jezelf niet ontslaan!', 'danger')
+            else:
+                user.is_admin = False
+                flash(f'{user.full_name} is geen Admin meer.', 'warning')
+        db.session.commit()
     
     return redirect(url_for('main.admin_settings'))
 
@@ -741,23 +722,18 @@ def toggle_admin():
 def add_category():
     if not check_admin(): return redirect(url_for('main.index'))
     
-    try:
-        new_cat = request.form.get('new_category').strip().lower()
-        if new_cat:
-            s = get_settings()
-            current_cats = get_categories()
-            
-            if new_cat not in current_cats:
-                current_cats.append(new_cat)
-                s.product_categories_json = json.dumps(current_cats)
-                db.session.commit()
-                flash(f'Categorie "{new_cat}" toegevoegd.', 'success')
-            else:
-                flash('Deze categorie bestaat al.', 'warning')
-    except Exception as e:
-        db.session.rollback()
-        print(f"Category add error: {e}")
-        flash("Kon categorie niet toevoegen.", "danger")
+    new_cat = request.form.get('new_category').strip().lower()
+    if new_cat:
+        s = get_settings()
+        current_cats = get_categories()
+        
+        if new_cat not in current_cats:
+            current_cats.append(new_cat)
+            s.product_categories_json = json.dumps(current_cats)
+            db.session.commit()
+            flash(f'Categorie "{new_cat}" toegevoegd.', 'success')
+        else:
+            flash('Deze categorie bestaat al.', 'warning')
             
     return redirect(url_for('main.admin_settings'))
 
@@ -765,20 +741,15 @@ def add_category():
 def delete_category():
     if not check_admin(): return redirect(url_for('main.index'))
     
-    try:
-        cat_to_remove = request.form.get('category_name')
-        s = get_settings()
-        current_cats = get_categories()
-        
-        if cat_to_remove in current_cats:
-            current_cats.remove(cat_to_remove)
-            s.product_categories_json = json.dumps(current_cats)
-            db.session.commit()
-            flash(f'Categorie "{cat_to_remove}" verwijderd.', 'success')
-    except Exception as e:
-        db.session.rollback()
-        print(f"Category delete error: {e}")
-        flash("Kon categorie niet verwijderen.", "danger")
+    cat_to_remove = request.form.get('category_name')
+    s = get_settings()
+    current_cats = get_categories()
+    
+    if cat_to_remove in current_cats:
+        current_cats.remove(cat_to_remove)
+        s.product_categories_json = json.dumps(current_cats)
+        db.session.commit()
+        flash(f'Categorie "{cat_to_remove}" verwijderd.', 'success')
         
     return redirect(url_for('main.admin_settings'))
 
@@ -798,10 +769,12 @@ def admin_inventory():
     try:
         res = generate_smart_forecast()
         shop_week = res[2]
+        
         if shop_week:
             needs_map = {item['name']: item['amount'] for item in shop_week}
         else:
             needs_map = {}
+            
     except Exception as e:
         print(f"Forecast error in inventory: {e}")
         needs_map = {}
@@ -816,26 +789,23 @@ def restock_ingredient():
     if not check_admin(): return redirect(url_for('main.index'))
     try:
         ing = Ingredient.query.get(request.form.get('ingredient_id'))
-        if ing:
-            ing.stock_quantity += Decimal(request.form.get('amount'))
-            db.session.commit()
-            flash(f'Voorraad {ing.name} bijgevuld.', 'success')
-    except Exception as e: 
-        db.session.rollback()
-        print(f"Restock error: {e}")
-        flash('Fout bij bijvullen.', 'danger')
-        
+        ing.stock_quantity += Decimal(request.form.get('amount'))
+        db.session.commit()
+        flash(f'Voorraad {ing.name} bijgevuld.', 'success')
+    except: db.session.rollback()
     return redirect(url_for('main.admin_inventory'))
 
 @main.route('/admin/inventory/refresh', methods=['POST'])
 def refresh_inventory_forecast():
     if not check_admin(): return redirect(url_for('main.index'))
     try:
+        # Forceer de AI om alles opnieuw te berekenen (cache negeren)
         generate_smart_forecast(force_refresh=True)
         flash("Prognose ververst. De kolom 'Nodig' is weer up-to-date.", 'success')
     except Exception as e:
         flash(f"Fout bij verversen: {e}", 'danger')
     
+    # Keer terug naar de voorraadpagina (niet de forecast pagina)
     return redirect(url_for('main.admin_inventory'))
 
 @main.route('/admin/waste', methods=['POST'])
@@ -843,15 +813,10 @@ def waste_ingredient():
     if not check_admin(): return redirect(url_for('main.index'))
     try:
         ing = Ingredient.query.get(request.form.get('ingredient_id'))
-        if ing:
-            ing.stock_quantity -= Decimal(request.form.get('amount'))
-            db.session.commit()
-            flash(f'Afschrijving {ing.name} verwerkt.', 'warning')
-    except Exception as e: 
-        db.session.rollback()
-        print(f"Waste error: {e}")
-        flash('Fout bij afschrijven.', 'danger')
-        
+        ing.stock_quantity -= Decimal(request.form.get('amount'))
+        db.session.commit()
+        flash(f'Afschrijving {ing.name} verwerkt.', 'warning')
+    except: db.session.rollback()
     return redirect(url_for('main.admin_inventory'))
 
 @main.route('/admin/inventory/product_waste', methods=['POST'])
@@ -939,20 +904,24 @@ def admin_dashboard():
     # 2. KPI: Openstaande Orders (To Do)
     open_orders = Order.query.filter(Order.status.in_(['pending', 'ready'])).count()
     
-    # 3. KPI: Kritieke Voorraad (DYNAMISCH / AI-GEDREVEN)
-    # We gebruiken de Twin-Engine (met cache)
+    # 3. KPI: Kritieke Voorraad (DYNAMISCH / AI-GEDREVEN) [AANGEPAST]
+    # In plaats van een statische limiet, vragen we de AI wat we de komende week nodig hebben.
     low_stock_count = 0
     try:
+        # We roepen de Twin-Engine aan (deze gebruikt caching, dus is snel genoeg)
+        # De functie geeft terug: (forecast_results, shop_tomorrow, shop_week, start, end)
         ai_result = generate_smart_forecast()
         shop_week_list = ai_result[2] 
         
+        # We tellen hoeveel ingrediënten in de 'shop_week' lijst de status 'Tekort' hebben.
+        # In analytics.py wordt 'Tekort ⚠️' gezet als nodig > voorraad.
         for item in shop_week_list:
             if 'Tekort' in item.get('status', ''):
                 low_stock_count += 1
                 
     except Exception as e:
         print(f"⚠️ Dashboard AI Error: {e}")
-        # FALLBACK: Statische threshold
+        # FALLBACK: Als de AI faalt, vallen we terug op de veilige statische threshold
         low_stock_count = Ingredient.query.filter(Ingredient.stock_quantity < Ingredient.threshold).count()
     
     # 4. Grafiekje: Omzet laatste 7 dagen
@@ -1045,16 +1014,10 @@ def admin_orders():
 @main.route('/admin/order/update/<int:order_id>', methods=['POST'])
 def update_order_status(order_id):
     if not check_admin(): return redirect(url_for('main.index'))
-    try:
-        order = Order.query.get(order_id)
-        if order:
-            order.status = request.form.get('status')
-            db.session.commit()
-            flash(f'Order #{order.id} gewijzigd.', 'success')
-    except Exception as e:
-        db.session.rollback()
-        flash(f'Fout bij wijzigen status.', 'danger')
-        
+    order = Order.query.get(order_id)
+    order.status = request.form.get('status')
+    db.session.commit()
+    flash(f'Order #{order.id} gewijzigd.', 'success')
     return redirect(url_for('main.admin_orders'))
 
 
@@ -1101,8 +1064,7 @@ def add_product_manual():
         flash('Product toegevoegd.', 'success')
     except Exception as e:
         db.session.rollback()
-        print(f"Product add error: {e}")
-        flash(f'Fout bij toevoegen: {e}', 'danger')
+        flash(f'Fout: {e}', 'danger')
     return redirect(url_for('main.admin_products'))
 
 @main.route('/admin/product/update_price', methods=['POST'])
@@ -1110,14 +1072,10 @@ def update_product_price():
     if not check_admin(): return redirect(url_for('main.index'))
     try:
         p = Product.query.get(request.form.get('product_id'))
-        if p:
-            p.price = Decimal(request.form.get('price'))
-            db.session.commit()
-            flash('Prijs gewijzigd.', 'success')
-    except Exception as e: 
-        db.session.rollback()
-        print(f"Price update error: {e}")
-        flash('Kon prijs niet wijzigen.', 'danger')
+        p.price = Decimal(request.form.get('price'))
+        db.session.commit()
+        flash('Prijs gewijzigd.', 'success')
+    except: pass
     return redirect(url_for('main.admin_products'))
 
 @main.route('/admin/product/update_season', methods=['POST'])
@@ -1125,24 +1083,19 @@ def update_product_season():
     if not check_admin(): return redirect(url_for('main.index'))
     try:
         p = Product.query.get(request.form.get('product_id'))
-        if p:
-            s_start = request.form.get('season_start')
-            s_end = request.form.get('season_end')
-            
-            if s_start and s_end:
-                p.season_start = s_start
-                p.season_end = s_end
-            else:
-                p.season_start = None
-                p.season_end = None
-                
-            db.session.commit()
-            flash('Seizoen aangepast.', 'success')
-    except Exception as e: 
-        db.session.rollback()
-        print(f"Season update error: {e}")
-        flash('Kon seizoen niet wijzigen.', 'danger')
+        s_start = request.form.get('season_start')
+        s_end = request.form.get('season_end')
         
+        if s_start and s_end:
+            p.season_start = s_start
+            p.season_end = s_end
+        else:
+            p.season_start = None
+            p.season_end = None
+            
+        db.session.commit()
+        flash('Seizoen aangepast.', 'success')
+    except: pass
     return redirect(url_for('main.admin_products'))
 
 @main.route('/admin/product/update_description', methods=['POST'])
@@ -1150,14 +1103,10 @@ def update_product_description():
     if not check_admin(): return redirect(url_for('main.index'))
     try:
         p = Product.query.get(request.form.get('product_id'))
-        if p:
-            p.description = request.form.get('description')
-            db.session.commit()
-            flash('Beschrijving gewijzigd.', 'success')
-    except Exception as e: 
-        db.session.rollback()
-        print(f"Description update error: {e}")
-        flash('Kon beschrijving niet wijzigen.', 'danger')
+        p.description = request.form.get('description')
+        db.session.commit()
+        flash('Beschrijving gewijzigd.', 'success')
+    except: pass
     return redirect(url_for('main.admin_products'))
 
 @main.route('/admin/product/update_category', methods=['POST'])
@@ -1165,14 +1114,10 @@ def update_product_category():
     if not check_admin(): return redirect(url_for('main.index'))
     try:
         p = Product.query.get(request.form.get('product_id'))
-        if p:
-            p.category = request.form.get('category')
-            db.session.commit()
-            flash('Categorie gewijzigd.', 'success')
-    except Exception as e: 
-        db.session.rollback()
-        print(f"Category update error: {e}")
-        flash('Kon categorie niet wijzigen.', 'danger')
+        p.category = request.form.get('category')
+        db.session.commit()
+        flash('Categorie gewijzigd.', 'success')
+    except: pass
     return redirect(url_for('main.admin_products'))
 
 @main.route('/admin/product/update_allergens', methods=['POST'])
@@ -1180,14 +1125,10 @@ def update_product_allergens():
     if not check_admin(): return redirect(url_for('main.index'))
     try:
         p = Product.query.get(request.form.get('product_id'))
-        if p:
-            p.allergens = request.form.get('allergens')
-            db.session.commit()
-            flash('Allergenen gewijzigd.', 'success')
-    except Exception as e: 
-        db.session.rollback()
-        print(f"Allergen update error: {e}")
-        flash('Kon allergenen niet wijzigen.', 'danger')
+        p.allergens = request.form.get('allergens')
+        db.session.commit()
+        flash('Allergenen gewijzigd.', 'success')
+    except: pass
     return redirect(url_for('main.admin_products'))
 
 @main.route('/admin/product/upload_image', methods=['POST'])
@@ -1196,7 +1137,7 @@ def upload_product_image():
     try:
         p = Product.query.get(request.form.get('product_id'))
         file = request.files.get('image_file')
-        if file and file.filename != '' and p:
+        if file and file.filename != '':
             url = upload_image_to_supabase(file)
             if url:
                 p.image_url = url
@@ -1204,10 +1145,7 @@ def upload_product_image():
                 flash('Foto gewijzigd (Supabase).', 'success')
             else:
                 flash('Fout bij uploaden naar Supabase.', 'danger')
-    except Exception as e: 
-        db.session.rollback()
-        print(f"Image upload error: {e}")
-        flash('Fout bij uploaden.', 'danger')
+    except: flash('Fout bij uploaden.', 'danger')
     return redirect(url_for('main.admin_products'))
 
 @main.route('/admin/product/import', methods=['POST'])
@@ -1228,10 +1166,7 @@ def import_products_excel():
                     count += 1
             db.session.commit()
             flash(f'{count} producten geïmporteerd!', 'success')
-        except Exception as e: 
-            db.session.rollback()
-            print(f"Excel import error: {e}")
-            flash('Fout in Excel bestand.', 'danger')
+        except: flash('Fout in Excel.', 'danger')
     return redirect(url_for('main.admin_products'))
 
 @main.route('/admin/product/delete/<int:product_id>', methods=['POST'])
@@ -1239,14 +1174,10 @@ def delete_product(product_id):
     if not check_admin(): return redirect(url_for('main.index'))
     try:
         p = Product.query.get(product_id)
-        if p:
-            db.session.delete(p)
-            db.session.commit()
-            flash('Product verwijderd.', 'success')
-    except Exception as e: 
-        db.session.rollback()
-        print(f"Delete product error: {e}")
-        flash('Kan niet verwijderen (mogelijk nog in orders?).', 'danger')
+        db.session.delete(p)
+        db.session.commit()
+        flash('Product verwijderd.', 'success')
+    except: flash('Kan niet verwijderen (nog in orders?).', 'danger')
     return redirect(url_for('main.admin_products'))
 
 @main.route('/admin/product/<int:product_id>/recipe')
@@ -1274,10 +1205,7 @@ def add_recipe_rule(product_id):
         ))
         db.session.commit()
         flash('Ingrediënt toegevoegd.', 'success')
-    except Exception as e: 
-        db.session.rollback()
-        print(f"Recipe add error: {e}")
-        flash('Fout bij toevoegen ingrediënt.', 'danger')
+    except: db.session.rollback()
     return redirect(url_for('main.manage_recipe', product_id=product_id))
 
 @main.route('/admin/product/recipe/delete/<int:rule_id>', methods=['POST'])
@@ -1289,11 +1217,7 @@ def delete_recipe_rule(rule_id):
         db.session.delete(rule)
         db.session.commit()
         return redirect(url_for('main.manage_recipe', product_id=pid))
-    except Exception as e: 
-        db.session.rollback()
-        print(f"Recipe delete error: {e}")
-        flash('Kon ingrediënt niet verwijderen.', 'danger')
-        return redirect(url_for('main.admin_products'))
+    except: return redirect(url_for('main.admin_products'))
 
 
 # ==============================================================================
@@ -1307,8 +1231,7 @@ def refresh_forecast():
         generate_smart_forecast(force_refresh=True)
         flash('Voorspelling ververst.', 'success')
     except Exception as e:
-        print(f"AI refresh error: {e}")
-        flash(f'Fout bij verversen: {e}', 'danger')
+        flash(f'Fout: {e}', 'danger')
     return redirect(url_for('main.admin_forecast'))
 
 @main.route('/admin/forecast')
@@ -1317,8 +1240,7 @@ def admin_forecast():
     try:
         forecast, shop_tomorrow, shop_week, start, end = generate_smart_forecast()
     except Exception as e:
-        print(f"Error AI forecast view: {e}")
-        flash('Kon voorspelling niet laden.', 'danger')
+        print(f"Error AI: {e}")
         forecast, shop_tomorrow, shop_week = [], [], []
         start, end = date.today(), date.today()
 
