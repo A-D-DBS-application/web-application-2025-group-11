@@ -2,6 +2,7 @@ import os
 import time
 import pandas as pd
 import json
+from functools import wraps 
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, make_response
 from decimal import Decimal, InvalidOperation
 from datetime import datetime, timedelta, date
@@ -24,7 +25,7 @@ from .analytics import get_cart_recommendations
 
 main = Blueprint('main', __name__)
 
-# --- HULPFUNCTIES ---
+# --- HULPFUNCTIES & DECORATORS ---
 
 def get_settings():
     """Haalt de instellingen op. Maakt ze aan als ze niet bestaan."""
@@ -39,12 +40,6 @@ def get_settings():
         db.session.add(settings)
         db.session.commit()
     return settings
-
-def check_admin():
-    """Controleert of de huidige gebruiker admin is in de database."""
-    if 'user_id' not in session: return False
-    user = Profile.query.get(session['user_id'])
-    return user and user.is_admin
 
 def get_categories():
     """Haalt categorieën uit DB of geeft defaults terug."""
@@ -77,6 +72,26 @@ def upload_image_to_supabase(file):
     except Exception as e:
         print(f"❌ Upload Error: {e}")
         return None
+
+# --- ADMIN DECORATOR ---
+# Dit vervangt de check_admin() functie en maakt de routes schoner.
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # 1. Is er een user ingelogd?
+        if 'user_id' not in session:
+            flash('Je moet inloggen om deze pagina te bekijken.', 'warning')
+            return redirect(url_for('main.login'))
+        
+        # 2. Is de user een admin?
+        user = Profile.query.get(session['user_id'])
+        if not user or not user.is_admin:
+            flash('Geen toegang: Alleen voor beheerders.', 'danger')
+            return redirect(url_for('main.index'))
+            
+        # 3. Alles oké? Voer de originele functie uit
+        return f(*args, **kwargs)
+    return decorated_function
 
 # --- TEMPLATE FILTERS ---
 @main.app_template_filter('product_img')
@@ -174,7 +189,7 @@ def my_orders():
             date_obj = datetime.strptime(f_date, '%Y-%m-%d').date()
             query = query.filter(Order.pickup_date == date_obj)
         except ValueError: 
-            pass # Geen geldige datum, negeer filter
+            pass 
 
     if f_product:
         query = query.join(OrderItem).join(Product).filter(Product.name.ilike(f"%{f_product}%")).distinct()
@@ -183,7 +198,7 @@ def my_orders():
         try:
             query = query.filter(Order.total_price >= Decimal(f_price))
         except (ValueError, InvalidOperation): 
-            pass # Geen geldig bedrag, negeer filter
+            pass
 
     pagination = query.order_by(Order.pickup_date.desc()).paginate(page=page, per_page=5, error_out=False)
     
@@ -375,16 +390,14 @@ def view_cart():
     products_in_cart = []
     total_cart_price = 0
     
-    # Variabelen voor logica
     current_ids = []
-    shortage_ingredients = []  # NIEUW: Lijst voor tekorten
+    shortage_ingredients = [] 
 
     if cart_dict:
         product_ids = [int(id) for id in cart_dict.keys()]
         current_ids = product_ids 
         products = Product.query.filter(Product.id.in_(product_ids)).all()
         
-        # We berekenen hier alvast het totaal aantal benodigde ingrediënten voor de hele mand
         ingredients_needed = {}
 
         for product in products:
@@ -393,7 +406,6 @@ def view_cart():
             total_cart_price += total_for_product
             products_in_cart.append({'product': product, 'quantity': quantity, 'total_price': total_for_product})
             
-            # Voeg ingrediënten toe aan de totaalsom
             for rule in product.ingredients:
                 needed = rule.quantity_needed * Decimal(quantity)
                 if rule.ingredient.id in ingredients_needed:
@@ -401,12 +413,11 @@ def view_cart():
                 else:
                     ingredients_needed[rule.ingredient.id] = {'obj': rule.ingredient, 'amount': needed}
         
-        # Check nu de totalen tegen de 'vrije' voorraad
         for ing_id, data in ingredients_needed.items():
             if data['obj'].stock_quantity < data['amount']:
                 shortage_ingredients.append(data['obj'].name)
 
-    # --- Suggesties Ophalen (Market Basket Analysis) ---
+    # --- Suggesties Ophalen ---
     recommendations = []
     if current_ids:
         try:
@@ -416,7 +427,7 @@ def view_cart():
         except Exception as e:
             print(f"Recommendation Error: {e}")
 
-    # --- Settings & Datums ---
+    # --- Settings ---
     settings = get_settings()
     deadline = settings.deadline_hour if settings.deadline_hour else 17
     
@@ -562,15 +573,14 @@ def checkout():
 # ==============================================================================
 
 @main.route('/admin/settings')
+@admin_required
 def admin_settings():
-    if not check_admin(): return redirect(url_for('main.index'))
-    
     admins = Profile.query.filter_by(is_admin=True).all()
     users = Profile.query.filter_by(is_admin=False).all()
     
     settings = get_settings()
     
-    # Auto-Cleanup: Verwijder oude gesloten dagen uit de database
+    # Auto-Cleanup: Verwijder oude gesloten dagen
     if settings.closed_dates_json:
         try:
             dates_list = json.loads(settings.closed_dates_json)
@@ -600,21 +610,18 @@ def admin_settings():
                            categories=categories)
 
 @main.route('/admin/settings/update', methods=['POST'])
+@admin_required
 def update_settings():
-    if not check_admin(): return redirect(url_for('main.index'))
-    
     try:
         s = get_settings()
         s.welcome_title = request.form.get('welcome_title')
         s.welcome_text = request.form.get('welcome_text')
         s.intro_text = request.form.get('intro_text')
         
-        # Deadline Uur opslaan
         try:
             s.deadline_hour = int(request.form.get('deadline_hour'))
         except ValueError: pass
 
-        # Annuleringstermijn
         try:
             c_days = request.form.get('cancellation_days')
             if c_days:
@@ -712,9 +719,8 @@ def update_settings():
     return redirect(url_for('main.admin_settings'))
 
 @main.route('/admin/settings/toggle_admin', methods=['POST'])
+@admin_required
 def toggle_admin():
-    if not check_admin(): return redirect(url_for('main.index'))
-    
     try:
         user_id = request.form.get('user_id')
         action = request.form.get('action')
@@ -738,9 +744,8 @@ def toggle_admin():
     return redirect(url_for('main.admin_settings'))
 
 @main.route('/admin/settings/category/add', methods=['POST'])
+@admin_required
 def add_category():
-    if not check_admin(): return redirect(url_for('main.index'))
-    
     try:
         new_cat = request.form.get('new_category').strip().lower()
         if new_cat:
@@ -762,9 +767,8 @@ def add_category():
     return redirect(url_for('main.admin_settings'))
 
 @main.route('/admin/settings/category/delete', methods=['POST'])
+@admin_required
 def delete_category():
-    if not check_admin(): return redirect(url_for('main.index'))
-    
     try:
         cat_to_remove = request.form.get('category_name')
         s = get_settings()
@@ -789,9 +793,8 @@ def delete_category():
 
 @main.route('/admin/inventory')
 @main.route('/admin/voorraad')
+@admin_required
 def admin_inventory():
-    if not check_admin(): return redirect(url_for('main.index'))
-    
     ingredients = Ingredient.query.order_by(Ingredient.name).all()
     products = Product.query.order_by(Product.name).all()
     
@@ -812,8 +815,8 @@ def admin_inventory():
                            products=products)
 
 @main.route('/admin/restock', methods=['POST'])
+@admin_required
 def restock_ingredient():
-    if not check_admin(): return redirect(url_for('main.index'))
     try:
         ing = Ingredient.query.get(request.form.get('ingredient_id'))
         if ing:
@@ -828,8 +831,8 @@ def restock_ingredient():
     return redirect(url_for('main.admin_inventory'))
 
 @main.route('/admin/inventory/refresh', methods=['POST'])
+@admin_required
 def refresh_inventory_forecast():
-    if not check_admin(): return redirect(url_for('main.index'))
     try:
         generate_smart_forecast(force_refresh=True)
         flash("Prognose ververst. De kolom 'Nodig' is weer up-to-date.", 'success')
@@ -839,8 +842,8 @@ def refresh_inventory_forecast():
     return redirect(url_for('main.admin_inventory'))
 
 @main.route('/admin/waste', methods=['POST'])
+@admin_required
 def waste_ingredient():
-    if not check_admin(): return redirect(url_for('main.index'))
     try:
         ing = Ingredient.query.get(request.form.get('ingredient_id'))
         if ing:
@@ -855,9 +858,8 @@ def waste_ingredient():
     return redirect(url_for('main.admin_inventory'))
 
 @main.route('/admin/inventory/product_waste', methods=['POST'])
+@admin_required
 def process_product_waste():
-    if not check_admin(): return redirect(url_for('main.index'))
-    
     try:
         product_id = request.form.get('product_id')
         quantity = int(request.form.get('quantity'))
@@ -881,9 +883,8 @@ def process_product_waste():
     return redirect(url_for('main.admin_inventory'))
 
 @main.route('/admin/inventory/missed_sale', methods=['POST'])
+@admin_required
 def register_missed_sale():
-    if not check_admin(): return redirect(url_for('main.index'))
-    
     try:
         product_id = request.form.get('product_id')
         quantity = int(request.form.get('quantity'))
@@ -894,11 +895,9 @@ def register_missed_sale():
              return redirect(url_for('main.admin_inventory'))
 
         if product_id and quantity > 0:
-            # Maak een order aan die 'Cancelled' is
-            # Hierdoor telt hij NIET mee voor de omzet, maar WEL voor de AI (Vraag)
             order = Order(
                 user_id=shop_profile.id,
-                status='cancelled', # Cruciaal!
+                status='cancelled', 
                 pickup_date=date.today(),
                 total_price=0,
                 remarks="Gemiste Verkoop (Uitverkocht)"
@@ -906,7 +905,6 @@ def register_missed_sale():
             db.session.add(order)
             db.session.flush()
             
-            # Voeg items toe
             product = Product.query.get(product_id)
             db.session.add(OrderItem(
                 order_id=order.id,
@@ -928,19 +926,14 @@ def register_missed_sale():
 
 @main.route('/admin')
 @main.route('/admin/dashboard')
+@admin_required
 def admin_dashboard():
-    if not check_admin(): return redirect(url_for('main.index'))
-    
-    # 1. KPI: Omzet Vandaag
     today = date.today()
     revenue_today = db.session.query(func.sum(Order.total_price))\
         .filter(Order.pickup_date == today, Order.status != 'cancelled').scalar() or 0
     
-    # 2. KPI: Openstaande Orders (To Do)
     open_orders = Order.query.filter(Order.status.in_(['pending', 'ready'])).count()
     
-    # 3. KPI: Kritieke Voorraad (DYNAMISCH / AI-GEDREVEN)
-    # We gebruiken de Twin-Engine (met cache)
     low_stock_count = 0
     try:
         ai_result = generate_smart_forecast()
@@ -952,10 +945,8 @@ def admin_dashboard():
                 
     except Exception as e:
         print(f"⚠️ Dashboard AI Error: {e}")
-        # FALLBACK: Statische threshold
         low_stock_count = Ingredient.query.filter(Ingredient.stock_quantity < Ingredient.threshold).count()
     
-    # 4. Grafiekje: Omzet laatste 7 dagen
     last_7_days = []
     revenues = []
     for i in range(6, -1, -1):
@@ -973,9 +964,8 @@ def admin_dashboard():
                            chart_data=revenues)
 
 @main.route('/admin/orders')
+@admin_required
 def admin_orders():
-    if not check_admin(): return redirect(url_for('main.index'))
-    
     today = date.today()
     
     page_future = request.args.get('page_future', 1, type=int)
@@ -1043,8 +1033,8 @@ def admin_orders():
                            filters=current_filters)
 
 @main.route('/admin/order/update/<int:order_id>', methods=['POST'])
+@admin_required
 def update_order_status(order_id):
-    if not check_admin(): return redirect(url_for('main.index'))
     try:
         order = Order.query.get(order_id)
         if order:
@@ -1063,15 +1053,15 @@ def update_order_status(order_id):
 # ==============================================================================
 
 @main.route('/admin/products')
+@admin_required
 def admin_products():
-    if not check_admin(): return redirect(url_for('main.index'))
     products = Product.query.order_by(Product.name).all()
     categories_list = get_categories()
     return render_template('admin_products.html', products=products, categories=categories_list)
 
 @main.route('/admin/product/add', methods=['POST'])
+@admin_required
 def add_product_manual():
-    if not check_admin(): return redirect(url_for('main.index'))
     try:
         file = request.files.get('image_file')
         image_url = 'logo.png'
@@ -1106,8 +1096,8 @@ def add_product_manual():
     return redirect(url_for('main.admin_products'))
 
 @main.route('/admin/product/update_price', methods=['POST'])
+@admin_required
 def update_product_price():
-    if not check_admin(): return redirect(url_for('main.index'))
     try:
         p = Product.query.get(request.form.get('product_id'))
         if p:
@@ -1121,8 +1111,8 @@ def update_product_price():
     return redirect(url_for('main.admin_products'))
 
 @main.route('/admin/product/update_season', methods=['POST'])
+@admin_required
 def update_product_season():
-    if not check_admin(): return redirect(url_for('main.index'))
     try:
         p = Product.query.get(request.form.get('product_id'))
         if p:
@@ -1146,8 +1136,8 @@ def update_product_season():
     return redirect(url_for('main.admin_products'))
 
 @main.route('/admin/product/update_description', methods=['POST'])
+@admin_required
 def update_product_description():
-    if not check_admin(): return redirect(url_for('main.index'))
     try:
         p = Product.query.get(request.form.get('product_id'))
         if p:
@@ -1161,8 +1151,8 @@ def update_product_description():
     return redirect(url_for('main.admin_products'))
 
 @main.route('/admin/product/update_category', methods=['POST'])
+@admin_required
 def update_product_category():
-    if not check_admin(): return redirect(url_for('main.index'))
     try:
         p = Product.query.get(request.form.get('product_id'))
         if p:
@@ -1176,8 +1166,8 @@ def update_product_category():
     return redirect(url_for('main.admin_products'))
 
 @main.route('/admin/product/update_allergens', methods=['POST'])
+@admin_required
 def update_product_allergens():
-    if not check_admin(): return redirect(url_for('main.index'))
     try:
         p = Product.query.get(request.form.get('product_id'))
         if p:
@@ -1191,8 +1181,8 @@ def update_product_allergens():
     return redirect(url_for('main.admin_products'))
 
 @main.route('/admin/product/upload_image', methods=['POST'])
+@admin_required
 def upload_product_image():
-    if not check_admin(): return redirect(url_for('main.index'))
     try:
         p = Product.query.get(request.form.get('product_id'))
         file = request.files.get('image_file')
@@ -1211,8 +1201,8 @@ def upload_product_image():
     return redirect(url_for('main.admin_products'))
 
 @main.route('/admin/product/import', methods=['POST'])
+@admin_required
 def import_products_excel():
-    if not check_admin(): return redirect(url_for('main.index'))
     file = request.files.get('file')
     if file:
         try:
@@ -1235,8 +1225,8 @@ def import_products_excel():
     return redirect(url_for('main.admin_products'))
 
 @main.route('/admin/product/delete/<int:product_id>', methods=['POST'])
+@admin_required
 def delete_product(product_id):
-    if not check_admin(): return redirect(url_for('main.index'))
     try:
         p = Product.query.get(product_id)
         if p:
@@ -1250,15 +1240,15 @@ def delete_product(product_id):
     return redirect(url_for('main.admin_products'))
 
 @main.route('/admin/product/<int:product_id>/recipe')
+@admin_required
 def manage_recipe(product_id):
-    if not check_admin(): return redirect(url_for('main.index'))
     product = Product.query.get_or_404(product_id)
     all_ingredients = Ingredient.query.order_by(Ingredient.name).all()
     return render_template('admin_recipe.html', product=product, all_ingredients=all_ingredients)
 
 @main.route('/admin/product/<int:product_id>/recipe/add', methods=['POST'])
+@admin_required
 def add_recipe_rule(product_id):
-    if not check_admin(): return redirect(url_for('main.index'))
     name = request.form.get('ingredient_name')
     try:
         ing = Ingredient.query.filter(Ingredient.name.ilike(name)).first()
@@ -1281,8 +1271,8 @@ def add_recipe_rule(product_id):
     return redirect(url_for('main.manage_recipe', product_id=product_id))
 
 @main.route('/admin/product/recipe/delete/<int:rule_id>', methods=['POST'])
+@admin_required
 def delete_recipe_rule(rule_id):
-    if not check_admin(): return redirect(url_for('main.index'))
     try:
         rule = ProductIngredient.query.get(rule_id)
         pid = rule.product_id
@@ -1301,8 +1291,8 @@ def delete_recipe_rule(rule_id):
 # ==============================================================================
 
 @main.route('/admin/forecast/refresh', methods=['POST'])
+@admin_required
 def refresh_forecast():
-    if not check_admin(): return redirect(url_for('main.index'))
     try:
         generate_smart_forecast(force_refresh=True)
         flash('Voorspelling ververst.', 'success')
@@ -1312,8 +1302,8 @@ def refresh_forecast():
     return redirect(url_for('main.admin_forecast'))
 
 @main.route('/admin/forecast')
+@admin_required
 def admin_forecast():
-    if not check_admin(): return redirect(url_for('main.index'))
     try:
         forecast, shop_tomorrow, shop_week, start, end = generate_smart_forecast()
     except Exception as e:
