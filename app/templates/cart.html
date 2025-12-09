@@ -11,10 +11,18 @@
         <span><strong>Info:</strong> Je kunt deze bestelling kosteloos annuleren tot <strong>{{ settings.cancellation_days }} {{ 'dag' if settings.cancellation_days == 1 else 'dagen' }}</strong> voor de gekozen ophaaldatum.</span>
     </div>
 
+    <div id="stock-warning" style="display: none; background-color: #FFEBEE; color: #C62828; padding: 15px; border-radius: 8px; margin-bottom: 25px; border: 1px solid #EF9A9A;">
+        <strong style="display: block; margin-bottom: 5px;">⚠️ Let op: Voorraad tekort voor korte termijn!</strong>
+        <p style="margin: 0; font-size: 0.95em;">
+            Voor de volgende ingrediënten is er momenteel onvoldoende voorraad: 
+            <strong id="missing-list"></strong>.<br>
+            Kies een datum over <strong>meer dan 2 dagen</strong> zodat wij tijd hebben om in te kopen, of pas je bestelling aan.
+        </p>
+    </div>
+
     <div style="display: flex; gap: 40px; flex-wrap: wrap; align-items: flex-start;">
         
         <div style="flex: 2; min-width: 300px;">
-            
             <div class="cart-container">
                 {% for item in cart_items %}
                 <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding: 15px 0;">
@@ -97,7 +105,7 @@
         <div style="flex: 1; min-width: 300px; position: sticky; top: 20px;">
             <div class="checkout-container">
                 <h3 style="color: #593C28; margin-bottom: 20px;">Afrekenen</h3>
-                <form action="{{ url_for('main.checkout') }}" method="POST">
+                <form action="{{ url_for('main.checkout') }}" method="POST" id="checkoutForm">
                     <div style="margin-bottom: 15px;">
                         <label for="pickup_date" style="display: block; margin-bottom: 5px; font-weight: bold; color: #593C28;">Ophaaldatum:</label>
                         
@@ -106,13 +114,15 @@
                                data-min-date="{{ min_date_str }}" 
                                data-closed-days='{{ closed_days | tojson }}'
                                data-specific-dates='{{ specific_closed_dates | tojson }}'
+                               data-shortages='{{ shortage_ingredients | tojson }}'
                                style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
                     </div>
                     <div style="margin-bottom: 20px;">
                         <label for="remarks" style="display: block; margin-bottom: 5px; font-weight: bold; color: #593C28;">Opmerkingen:</label>
                         <textarea name="remarks" id="remarks" rows="3" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px;"></textarea>
                     </div>
-                    <button type="submit" class="btn-bestel" style="width: 100%; padding: 12px; font-size: 1.1em; background-color: #593C28; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                    
+                    <button type="submit" id="btn-submit-order" class="btn-bestel" style="width: 100%; padding: 12px; font-size: 1.1em; background-color: #593C28; color: white; border: none; border-radius: 6px; cursor: pointer;">
                         AFREKENEN
                     </button>
                 </form>
@@ -138,12 +148,20 @@
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const dateInput = document.getElementById('pickup_date');
+        const warningBox = document.getElementById('stock-warning');
+        const missingListSpan = document.getElementById('missing-list');
+        const submitBtn = document.getElementById('btn-submit-order');
+        
         if (dateInput) {
             const minDate = dateInput.dataset.minDate;
             const closedDays = JSON.parse(dateInput.dataset.closedDays || '[]');
             const specificClosedDates = JSON.parse(dateInput.dataset.specificDates || '[]');
+            
+            // FIX: Lees data nu veilig uit het attribuut
+            const shortages = JSON.parse(dateInput.dataset.shortages || '[]');
+            const hasShortages = shortages.length > 0;
 
-            flatpickr("#pickup_date", {
+            const fp = flatpickr("#pickup_date", {
                 locale: "nl",
                 dateFormat: "Y-m-d",
                 minDate: minDate,
@@ -156,7 +174,38 @@
                 ],
                 
                 disableMobile: "true",
-                firstDayOfWeek: 1
+                firstDayOfWeek: 1,
+                
+                // --- SLIMME LOGICA VOOR 2 DAGEN REGEL ---
+                onChange: function(selectedDates, dateStr, instance) {
+                    if (selectedDates.length === 0) return;
+                    
+                    const selectedDate = selectedDates[0];
+                    const today = new Date();
+                    
+                    // Bereken verschil in dagen (naar boven afgerond)
+                    const diffTime = Math.abs(selectedDate - today);
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+
+                    // REGEL: Als er tekorten zijn EN de datum is <= 2 dagen (plus marge voor vandaag/tijdzones)
+                    // We gebruiken hier 3 als veilige marge voor 'binnen de 2 dagen'
+                    if (hasShortages && diffDays <= 3) { 
+                        warningBox.style.display = 'block';
+                        missingListSpan.innerText = shortages.join(", ");
+                        
+                        submitBtn.disabled = true;
+                        submitBtn.style.backgroundColor = "#ccc";
+                        submitBtn.style.cursor = "not-allowed";
+                        submitBtn.title = "Kies een datum verder in de toekomst";
+                    } else {
+                        // Alles oké (of datum ver genoeg in toekomst)
+                        warningBox.style.display = 'none';
+                        submitBtn.disabled = false;
+                        submitBtn.style.backgroundColor = "#593C28";
+                        submitBtn.style.cursor = "pointer";
+                        submitBtn.title = "";
+                    }
+                }
             });
         }
     });

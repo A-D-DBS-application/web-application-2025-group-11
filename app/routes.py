@@ -6,7 +6,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from decimal import Decimal
 from datetime import datetime, timedelta, date
 from werkzeug.utils import secure_filename
-from sqlalchemy import text
+from sqlalchemy import func, text
 from sqlalchemy import or_
 from icalendar import Calendar, Event
 
@@ -367,36 +367,54 @@ def view_cart():
     products_in_cart = []
     total_cart_price = 0
     
-    # We houden de ID's bij voor de recommendation engine
+    # Variabelen voor logica
     current_ids = []
+    shortage_ingredients = []  # NIEUW: Lijst voor tekorten
 
     if cart_dict:
         product_ids = [int(id) for id in cart_dict.keys()]
         current_ids = product_ids 
         products = Product.query.filter(Product.id.in_(product_ids)).all()
+        
+        # We berekenen hier alvast het totaal aantal benodigde ingrediënten voor de hele mand
+        ingredients_needed = {}
+
         for product in products:
             quantity = cart_dict[str(product.id)]
             total_for_product = product.price * quantity
             total_cart_price += total_for_product
             products_in_cart.append({'product': product, 'quantity': quantity, 'total_price': total_for_product})
-    
-    # --- NIEUW: Suggesties Ophalen (Market Basket Analysis) ---
+            
+            # Voeg ingrediënten toe aan de totaalsom
+            for rule in product.ingredients:
+                needed = rule.quantity_needed * Decimal(quantity)
+                if rule.ingredient.id in ingredients_needed:
+                    ingredients_needed[rule.ingredient.id]['amount'] += needed
+                else:
+                    ingredients_needed[rule.ingredient.id] = {'obj': rule.ingredient, 'amount': needed}
+        
+        # Check nu de totalen tegen de 'vrije' voorraad
+        # Let op: stock_quantity in DB is wat er nu beschikbaar is (reeds bestelde items zijn er al af)
+        for ing_id, data in ingredients_needed.items():
+            if data['obj'].stock_quantity < data['amount']:
+                shortage_ingredients.append(data['obj'].name)
+
+    # --- Suggesties Ophalen (Market Basket Analysis) ---
     recommendations = []
     if current_ids:
         try:
-            # We roepen hier het algoritme aan dat we in analytics.py hebben gemaakt
             suggested_ids = get_cart_recommendations(current_ids)
             if suggested_ids:
                 recommendations = Product.query.filter(Product.id.in_(suggested_ids)).all()
         except Exception as e:
-            # Als het algoritme faalt (bijv. lege database), mag de winkelwagen niet crashen
             print(f"Recommendation Error: {e}")
-    # ----------------------------------------------------------
 
+    # --- Settings & Datums ---
     settings = get_settings()
     deadline = settings.deadline_hour if settings.deadline_hour else 17
     
     nu = datetime.now()
+    # Minimaal 1 dag in de toekomst (of 2 na deadline)
     min_datum_obj = date.today() + timedelta(days=1)
     if nu.hour >= deadline: 
         min_datum_obj = date.today() + timedelta(days=2)
@@ -422,10 +440,11 @@ def view_cart():
     return render_template('cart.html', 
                            cart_items=products_in_cart, 
                            total_cart_price=total_cart_price, 
-                           recommendations=recommendations, # <--- Deze sturen we nu mee naar de HTML
+                           recommendations=recommendations,
                            min_date_str=min_date_str,
                            closed_days=closed_days,
-                           specific_closed_dates=specific_closed_dates)
+                           specific_closed_dates=specific_closed_dates,
+                           shortage_ingredients=shortage_ingredients) # Geef tekorten mee
 
 @main.route('/cart/add/<int:product_id>', methods=['POST'])
 def add_to_cart(product_id):
@@ -474,7 +493,7 @@ def checkout():
     try:
         pickup_date_obj = datetime.strptime(pickup_date_str, '%Y-%m-%d').date()
         days_until_pickup = (pickup_date_obj - date.today()).days
-        should_check_stock = days_until_pickup <= 3
+        should_check_stock = days_until_pickup <= 2
         
         product_ids = [int(id) for id in cart_dict.keys()]
         products = Product.query.filter(Product.id.in_(product_ids)).all()
@@ -871,6 +890,56 @@ def register_missed_sale():
         flash(f'Fout: {e}', 'danger')
         
     return redirect(url_for('main.admin_inventory'))
+
+@main.route('/admin')
+@main.route('/admin/dashboard')
+def admin_dashboard():
+    if not check_admin(): return redirect(url_for('main.index'))
+    
+    # 1. KPI: Omzet Vandaag
+    today = date.today()
+    revenue_today = db.session.query(func.sum(Order.total_price))\
+        .filter(Order.pickup_date == today, Order.status != 'cancelled').scalar() or 0
+    
+    # 2. KPI: Openstaande Orders (To Do)
+    open_orders = Order.query.filter(Order.status.in_(['pending', 'ready'])).count()
+    
+    # 3. KPI: Kritieke Voorraad (DYNAMISCH / AI-GEDREVEN) [AANGEPAST]
+    # In plaats van een statische limiet, vragen we de AI wat we de komende week nodig hebben.
+    low_stock_count = 0
+    try:
+        # We roepen de Twin-Engine aan (deze gebruikt caching, dus is snel genoeg)
+        # De functie geeft terug: (forecast_results, shop_tomorrow, shop_week, start, end)
+        ai_result = generate_smart_forecast()
+        shop_week_list = ai_result[2] 
+        
+        # We tellen hoeveel ingrediënten in de 'shop_week' lijst de status 'Tekort' hebben.
+        # In analytics.py wordt 'Tekort ⚠️' gezet als nodig > voorraad.
+        for item in shop_week_list:
+            if 'Tekort' in item.get('status', ''):
+                low_stock_count += 1
+                
+    except Exception as e:
+        print(f"⚠️ Dashboard AI Error: {e}")
+        # FALLBACK: Als de AI faalt, vallen we terug op de veilige statische threshold
+        low_stock_count = Ingredient.query.filter(Ingredient.stock_quantity < Ingredient.threshold).count()
+    
+    # 4. Grafiekje: Omzet laatste 7 dagen
+    last_7_days = []
+    revenues = []
+    for i in range(6, -1, -1):
+        d = today - timedelta(days=i)
+        rev = db.session.query(func.sum(Order.total_price))\
+            .filter(Order.pickup_date == d, Order.status != 'cancelled').scalar() or 0
+        last_7_days.append(d.strftime('%d-%m'))
+        revenues.append(float(rev))
+
+    return render_template('admin_dashboard.html', 
+                           revenue_today=revenue_today,
+                           open_orders=open_orders,
+                           low_stock_count=low_stock_count,
+                           chart_labels=last_7_days,
+                           chart_data=revenues)
 
 @main.route('/admin/orders')
 def admin_orders():

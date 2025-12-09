@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block content %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<div class="container" style="margin-top: 40px; margin-bottom: 60px;">
+    
+    <div class="admin-header-container">
+        <div class="admin-header-text">
+            <h1>Dashboard</h1>
+            <p>Welkom terug, {{ current_user.full_name.split(' ')[0] }}! Hier is het overzicht van vandaag.</p>
+        </div>
+        
+        <div style="display: flex; gap: 8px;">
+            <a href="{{ url_for('main.admin_dashboard') }}" class="btn-admin-nav" style="background-color: white; color: #593C28; border: 2px solid #eee;">Dashboard</a>
+            <a href="{{ url_for('main.admin_inventory') }}" class="btn-admin-nav">Voorraad</a>
+            <a href="{{ url_for('main.admin_products') }}" class="btn-admin-nav">Producten</a>
+            <a href="{{ url_for('main.admin_orders') }}" class="btn-admin-nav">Orders</a>
+            <a href="{{ url_for('main.admin_forecast') }}" class="btn-admin-nav">Forecast</a>
+            <a href="{{ url_for('main.admin_settings') }}" class="btn-admin-nav">Settings</a>
+        </div>
+    </div>
+
+    <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 40px;">
+        
+        <div class="cart-container" style="flex: 1; min-width: 250px; text-align: center; border-left: 5px solid #2E7D32;">
+            <h3 style="color: #666; font-size: 0.9em; text-transform: uppercase;">Omzet Vandaag</h3>
+            <div style="font-size: 2.5em; font-weight: bold; color: #593C28; margin: 10px 0;">
+                € {{ "%.2f"|format(revenue_today) }}
+            </div>
+            <small style="color: #888;">excl. geannuleerd</small>
+        </div>
+
+        <div class="cart-container" style="flex: 1; min-width: 250px; text-align: center; border-left: 5px solid #F9A825;">
+            <h3 style="color: #666; font-size: 0.9em; text-transform: uppercase;">Openstaande Orders</h3>
+            <div style="font-size: 2.5em; font-weight: bold; color: #593C28; margin: 10px 0;">
+                {{ open_orders }}
+            </div>
+            <a href="{{ url_for('main.admin_orders') }}" style="color: #E63946; font-weight: bold; text-decoration: underline;">Bekijk Orders &rarr;</a>
+        </div>
+
+        <div class="cart-container" style="flex: 1; min-width: 250px; text-align: center; border-left: 5px solid #E63946;">
+            <h3 style="color: #666; font-size: 0.9em; text-transform: uppercase;">Lage Voorraad</h3>
+            <div style="font-size: 2.5em; font-weight: bold; color: #E63946; margin: 10px 0;">
+                {{ low_stock_count }}
+            </div>
+            <a href="{{ url_for('main.admin_inventory') }}" style="color: #593C28; font-weight: bold; text-decoration: underline;">Bijbestellen &rarr;</a>
+        </div>
+
+    </div>
+
+    <div class="cart-container">
+        <h3 style="color: #593C28; margin-bottom: 20px;">📈 Omzetverloop (Laatste 7 dagen)</h3>
+        <div style="height: 300px;">
+            <canvas id="revenueChart"
+                    data-labels='{{ chart_labels | tojson }}'
+                    data-values='{{ chart_data | tojson }}'>
+            </canvas>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 1. Haal het canvas element op
+        const canvas = document.getElementById('revenueChart');
+        
+        // 2. Lees de data uit de HTML attributen (dit vindt VS Code wél leuk)
+        // We moeten JSON.parse gebruiken om de tekst weer om te zetten naar een Array
+        const labels = JSON.parse(canvas.dataset.labels);
+        const dataValues = JSON.parse(canvas.dataset.values);
+
+        const ctx = canvas.getContext('2d');
+        const revenueChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,  // Gebruik de variabele van hierboven
+                datasets: [{
+                    label: 'Omzet (€)',
+                    data: dataValues, // Gebruik de variabele van hierboven
+                    backgroundColor: 'rgba(89, 60, 40, 0.2)',
+                    borderColor: 'rgba(89, 60, 40, 1)',
+                    borderWidth: 2,
+                    tension: 0.3,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: '#f0f0f0' }
+                    },
+                    x: {
+                        grid: { display: false }
+                    }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}

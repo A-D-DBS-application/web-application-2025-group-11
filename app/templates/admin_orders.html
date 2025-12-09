@@ -10,6 +10,7 @@
         </div>
         
         <div style="display: flex; gap: 8px;">
+            <a href="{{ url_for('main.admin_dashboard') }}" class="btn-admin-nav">Dashboard</a>
             <a href="{{ url_for('main.admin_inventory') }}" class="btn-admin-nav">Voorraad</a>
             <a href="{{ url_for('main.admin_products') }}" class="btn-admin-nav">Producten</a>   
             <a href="{{ url_for('main.admin_orders') }}" class="btn-admin-nav" style="background: white; color: #593C28; border: 2px solid #eee;">Orders</a> 
@@ -103,6 +104,13 @@
                                             <form action="{{ url_for('main.update_order_status', order_id=order.id) }}" method="POST">
                                                 <input type="hidden" name="status" value="picked_up">
                                                 <button type="submit" class="btn-status-action btn-finish">✅</button>
+                                            </form>
+                                        {% endif %}
+
+                                        {% if order.status != 'picked_up' and order.status != 'cancelled' %}
+                                            <form action="{{ url_for('main.update_order_status', order_id=order.id) }}" method="POST">
+                                                <input type="hidden" name="status" value="cancelled">
+                                                <button type="submit" class="btn-status-action btn-cancel" title="Annuleren" onclick="return confirm('Weet je zeker dat je deze order wilt annuleren?');">✕</button>
                                             </form>
                                         {% endif %}
                                     </div>

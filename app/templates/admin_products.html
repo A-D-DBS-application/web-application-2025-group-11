@@ -9,6 +9,7 @@
             <p>Prijzen wijzigen, nieuwe producten toevoegen of importeren.</p>
         </div>
         <div style="display: flex; gap: 8px;">
+            <a href="{{ url_for('main.admin_dashboard') }}" class="btn-admin-nav">Dashboard</a>
             <a href="{{ url_for('main.admin_inventory') }}" class="btn-admin-nav">Voorraad</a>       
             <a href="{{ url_for('main.admin_products') }}" class="btn-admin-nav" style="background: white; color: #593C28; border: 2px solid #eee;">Producten</a>      
             <a href="{{ url_for('main.admin_orders') }}" class="btn-admin-nav">Orders</a>
