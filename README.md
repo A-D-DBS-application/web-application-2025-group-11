@@ -15,10 +15,13 @@ python run.py
 
 link user stories: marie
 
-Maak render aan:Mathis
-met test admin account
+Render link:
+https://web-application-2025-group-11.onrender.com/
+Handover link: [MVP Handover.docx - ondertekend.pdf](https://github.com/user-attachments/files/24141357/MVP.Handover.docx.-.ondertekend.pdf)
+Gebruik loom
 
 link feedback:Mathis
+
 Jasper render laten gebruiken: Mathis
 Handover:Mathis
 
