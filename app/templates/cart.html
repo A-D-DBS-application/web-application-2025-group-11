@@ -144,7 +144,6 @@
         </div>
     {% endif %}
 </div>
-
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const dateInput = document.getElementById('pickup_date');
@@ -157,7 +156,7 @@
             const closedDays = JSON.parse(dateInput.dataset.closedDays || '[]');
             const specificClosedDates = JSON.parse(dateInput.dataset.specificDates || '[]');
             
-            // FIX: Lees data nu veilig uit het attribuut
+            // Lees data veilig uit het attribuut
             const shortages = JSON.parse(dateInput.dataset.shortages || '[]');
             const hasShortages = shortages.length > 0;
 
@@ -183,13 +182,19 @@
                     const selectedDate = selectedDates[0];
                     const today = new Date();
                     
-                    // Bereken verschil in dagen (naar boven afgerond)
-                    const diffTime = Math.abs(selectedDate - today);
+                    // We zetten de tijd op 00:00:00 om puur op datum te vergelijken
+                    today.setHours(0,0,0,0);
+                    selectedDate.setHours(0,0,0,0);
+
+                    // Bereken verschil in milliseconden en zet om naar dagen
+                    const diffTime = selectedDate - today;
                     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
 
-                    // REGEL: Als er tekorten zijn EN de datum is <= 2 dagen (plus marge voor vandaag/tijdzones)
-                    // We gebruiken hier 3 als veilige marge voor 'binnen de 2 dagen'
-                    if (hasShortages && diffDays <= 3) { 
+                    // REGEL: Blokkeer als het VANDAAG (0), MORGEN (1) of OVERMORGEN (2) is.
+                    // Vanaf dag 3 (dus "meer dan 2 dagen") mag het wel.
+                    // OUDE FOUT: stond op <= 3. NIEUWE CORRECTIE: <= 2.
+                    
+                    if (hasShortages && diffDays <= 2) { 
                         warningBox.style.display = 'block';
                         missingListSpan.innerText = shortages.join(", ");
                         
