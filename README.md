@@ -11,3 +11,19 @@ python -m venv venv
 venv\Scripts\activate
 pip install -r requirements.txt
 python run.py
+
+
+link user stories: marie
+
+Maak render aan:Mathis
+met test admin account
+
+link feedback:Mathis
+
+bootstrap testen;Roel
+
+demo filmpje: Alehan
+fotos toevoegen: Alehan
+
+
+run reset_orders en daarna seed_history voor demo begint: Alehan
