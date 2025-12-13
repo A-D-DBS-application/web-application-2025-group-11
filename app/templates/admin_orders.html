@@ -87,9 +87,16 @@
                                 </td>
 
                                 <td style="padding: 15px;">
-                                    {% if order.status == 'pending' %}<span class="status-badge status-warn">In wacht</span>
-                                    {% elif order.status == 'ready' %}<span class="status-badge status-ok">Staat klaar</span>
-                                    {% elif order.status == 'picked_up' %}<span class="status-badge" style="background:#ddd; color:#555;">Opgehaald</span>
+                                    {% if order.status == 'pending' %}
+                                        <span class="status-badge status-warn">In wacht</span>
+                                    {% elif order.status == 'ready' %}
+                                        <span class="status-badge status-ok">Staat klaar</span>
+                                    {% elif order.status == 'picked_up' %}
+                                        <span class="status-badge" style="background:#ddd; color:#555;">Opgehaald</span>
+                                    {% elif order.status == 'cancelled' %}
+                                        <span class="status-badge" style="background:#FFEBEE; color:#C62828;">Geannuleerd</span>
+                                    {% else %}
+                                        <span class="status-badge" style="background:#eee;">{{ order.status }}</span>
                                     {% endif %}
                                 </td>
 
@@ -210,6 +217,7 @@
                                 {% if order.status == 'pending' %}<span class="status-badge status-warn">In wacht</span>
                                 {% elif order.status == 'ready' %}<span class="status-badge status-ok">Staat klaar</span>
                                 {% elif order.status == 'picked_up' %}<span class="status-badge" style="background:#ddd; color:#555;">Opgehaald</span>
+                                {% elif order.status == 'cancelled' %}<span class="status-badge" style="background:#FFEBEE; color:#C62828;">Geannuleerd</span>
                                 {% else %}<span class="status-badge" style="background:#eee;">{{ order.status }}</span>
                                 {% endif %}
                             </td>
@@ -308,6 +316,8 @@
                                     <span class="status-badge" style="background:#FFEBEE; color:#C62828;">Geannuleerd</span>
                                 {% elif order.status in ['pending', 'ready'] %}
                                     <span class="status-badge status-warn">Niet opgehaald?</span>
+                                {% else %}
+                                    <span class="status-badge" style="background:#eee;">{{ order.status }}</span>
                                 {% endif %}
                             </td>
 
