@@ -1,149 +1,153 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container" style="margin-top: 40px; margin-bottom: 60px;">
-    <h1 style="margin-bottom: 30px; color: #593C28;">Mijn Winkelwagen</h1>
+<div class="container py-4 mb-5">
+    <h1 class="h2 text-brown fw-bold mb-4">Mijn Winkelwagen</h1>
 
     {% if cart_items %}
     
-    <div style="background-color: #fff3cd; color: #856404; padding: 10px 15px; border-radius: 8px; margin-bottom: 25px; border: 1px solid #ffeeba; font-size: 0.95em; display: flex; align-items: center; gap: 10px;">
-        <span>ℹ️</span>
-        <span><strong>Info:</strong> Je kunt deze bestelling kosteloos annuleren tot <strong>{{ settings.cancellation_days }} {{ 'dag' if settings.cancellation_days == 1 else 'dagen' }}</strong> voor de gekozen ophaaldatum.</span>
-    </div>
-
-    <div id="stock-warning" style="display: none; background-color: #FFEBEE; color: #C62828; padding: 15px; border-radius: 8px; margin-bottom: 25px; border: 1px solid #EF9A9A;">
-        <strong style="display: block; margin-bottom: 5px;">⚠️ Let op: Voorraad tekort voor korte termijn!</strong>
-        <p style="margin: 0; font-size: 0.95em;">
-            Voor de volgende ingrediënten is er momenteel onvoldoende voorraad: 
-            <strong id="missing-list"></strong>.<br>
-            Kies een datum over <strong>meer dan 2 dagen</strong> zodat wij tijd hebben om in te kopen, of pas je bestelling aan.
-        </p>
-    </div>
-
-    <div style="display: flex; gap: 40px; flex-wrap: wrap; align-items: flex-start;">
+    <div class="row g-4">
         
-        <div style="flex: 2; min-width: 300px;">
-            <div class="cart-container">
-                {% for item in cart_items %}
-                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding: 15px 0;">
-                    
-                    <div style="display: flex; align-items: center; gap: 20px;">
-                        <img src="{{ item.product.image_url | product_img }}" 
-                             alt="{{ item.product.name }}" 
-                             style="width: 60px; height: 60px; object-fit: cover; border-radius: 6px; border: 1px solid #ddd;">
-                        
-                        <div>
-                            <h4 style="margin: 0; color: #593C28;">{{ item.product.name }}</h4>
+        <div class="col-lg-8">
+            
+            <div class="alert alert-warning d-flex align-items-center mb-4" role="alert">
+                <span class="me-2">ℹ️</span>
+                <div>
+                    <strong>Info:</strong> Annuleren kan kosteloos tot <strong>{{ settings.cancellation_days }} dagen</strong> voor de ophaaldatum.
+                </div>
+            </div>
+
+            <div id="stock-warning" class="alert alert-danger mb-4" style="display: none;">
+                <strong>⚠️ Let op: Voorraad tekort!</strong><br>
+                Voor: <strong id="missing-list"></strong> is er te weinig voorraad.<br>
+                Kies een datum over <strong>meer dan 2 dagen</strong> of pas je bestelling aan.
+            </div>
+
+            <div class="card shadow-sm border-0 mb-4">
+                <ul class="list-group list-group-flush">
+                    {% for item in cart_items %}
+                    <li class="list-group-item p-3">
+                        <div class="d-flex align-items-center">
+                            <img src="{{ item.product.image_url | product_img }}" 
+                                 alt="{{ item.product.name }}" 
+                                 class="rounded border me-3" 
+                                 style="width: 70px; height: 70px; object-fit: cover;">
                             
-                            <div style="display: flex; align-items: center; gap: 10px; margin-top: 8px;">
-                                <form action="{{ url_for('main.decrease_from_cart', product_id=item.product.id) }}" method="POST" style="margin:0;">
-                                    <button type="submit" class="quantity-btn" style="width: 25px; height: 25px;">-</button>
-                                </form>
+                            <div class="flex-grow-1">
+                                <h5 class="mb-1 text-brown">{{ item.product.name }}</h5>
+                                <div class="text-muted small">Stukprijs: € {{ item.product.price }}</div>
+                            </div>
+
+                            <div class="d-flex flex-column align-items-end gap-2">
+                                <span class="fw-bold fs-5 text-brown">€ {{ item.total_price }}</span>
                                 
-                                <span style="font-weight: bold; color: #333; min-width: 20px; text-align: center;">{{ item.quantity }}</span>
-                            
-                                <form action="{{ url_for('main.add_to_cart', product_id=item.product.id) }}" method="POST" style="margin:0;">
-                                    <input type="hidden" name="quantity" value="1">
-                                    <button type="submit" class="quantity-btn" style="width: 25px; height: 25px;">+</button>
-                                </form>
+                                <div class="d-flex align-items-center gap-2">
+                                    <form action="{{ url_for('main.decrease_from_cart', product_id=item.product.id) }}" method="POST" class="m-0">
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary" style="width: 30px;">-</button>
+                                    </form>
+                                    
+                                    <span class="fw-bold" style="min-width: 20px; text-align: center;">{{ item.quantity }}</span>
+                                
+                                    <form action="{{ url_for('main.add_to_cart', product_id=item.product.id) }}" method="POST" class="m-0">
+                                        <input type="hidden" name="quantity" value="1">
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary" style="width: 30px;">+</button>
+                                    </form>
+
+                                    <form action="{{ url_for('main.remove_from_cart', product_id=item.product.id) }}" method="POST" class="m-0 ms-2" onsubmit="return confirm('Verwijderen?');">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger border-0" title="Verwijder">✕</button>
+                                    </form>
+                                </div>
                             </div>
                         </div>
-                    </div>
-
-                    <div style="display: flex; align-items: center; gap: 20px;">
-                        <span style="font-weight: bold; color: #593C28; font-size: 1.1em;">€ {{ item.total_price }}</span>
-                        
-                        <form action="{{ url_for('main.remove_from_cart', product_id=item.product.id) }}" method="POST" onsubmit="return confirm('Verwijderen?');">
-                            <button type="submit" class="remove-from-cart-btn" title="Verwijder uit winkelwagen">
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                            </button>
-                        </form>
-                    </div>
-                </div>
-                {% endfor %}
-                
-                <div style="text-align: right; margin-top: 25px; font-size: 1.3em; color: #593C28;">
-                    Totaal: <strong>€ {{ total_cart_price }}</strong>
+                    </li>
+                    {% endfor %}
+                </ul>
+                <div class="card-footer bg-white text-end py-3">
+                    <span class="fs-4 text-brown">Totaal: <strong>€ {{ total_cart_price }}</strong></span>
                 </div>
             </div>
 
             {% if recommendations %}
-            <div class="cart-container" style="margin-top: 30px; background-color: #fffdf9;">
-                <h3 style="color: #593C28; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
-                    👨‍🍳 Misschien vind je dit ook lekker
-                </h3>
-                
-                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 20px;">
-                    {% for prod in recommendations %}
-                        <div style="background: white; border: 1px solid #eee; border-radius: 10px; padding: 15px; text-align: center; transition: transform 0.2s; display: flex; flex-direction: column; justify-content: space-between; height: 100%; box-shadow: 0 2px 5px rgba(0,0,0,0.03);">
-                            
-                            <div style="margin-bottom: 10px;">
-                                <img src="{{ prod.image_url | product_img }}" style="width: 100%; height: 120px; object-fit: contain; border-radius: 8px; margin-bottom: 10px; background-color: #fff;">
-                                
-                                <div style="font-weight: bold; color: #593C28; font-size: 0.95em; line-height: 1.2; margin-bottom: 5px; min-height: 2.4em; display: flex; align-items: center; justify-content: center;">
-                                    {{ prod.name }}
+            <div class="card border-0 shadow-sm mt-5" style="background-color: #fffdf9;">
+                <div class="card-body">
+                    <h4 class="text-brown mb-3">👨‍🍳 Misschien vind je dit ook lekker</h4>
+                    
+                    <div class="row row-cols-1 row-cols-md-3 g-3">
+                        {% for prod in recommendations %}
+                            <div class="col">
+                                <div class="card h-100 border-0 shadow-sm bg-white text-center p-2">
+                                    <img src="{{ prod.image_url | product_img }}" class="card-img-top rounded mx-auto mt-2" style="height: 100px; width: auto; object-fit: contain;">
+                                    <div class="card-body p-2 d-flex flex-column">
+                                        <h6 class="card-title text-brown mb-1">{{ prod.name }}</h6>
+                                        <p class="text-muted small mb-2">€ {{ prod.price }}</p>
+                                        
+                                        <form action="{{ url_for('main.add_to_cart', product_id=prod.id) }}" method="POST" class="mt-auto w-100">
+                                            <input type="hidden" name="quantity" value="1">
+                                            <button type="submit" class="btn btn-outline-primary w-100 btn-sm">
+                                                + Toevoegen
+                                            </button>
+                                        </form>
+                                    </div>
                                 </div>
-                                <div style="color: #666; font-size: 0.9em;">€ {{ prod.price }}</div>
                             </div>
-                            
-                            <form action="{{ url_for('main.add_to_cart', product_id=prod.id) }}" method="POST" style="width: 100%;">
-                                <input type="hidden" name="quantity" value="1">
-                                <button type="submit" class="btn-admin-nav" style="width: 100%; justify-content: center; font-size: 0.85em; padding: 8px; background-color: white; color: #593C28; border: 1px solid #593C28;">
-                                    + Toevoegen
-                                </button>
-                            </form>
-                        </div>
-                    {% endfor %}
+                        {% endfor %}
+                    </div>
                 </div>
             </div>
             {% endif %}
 
         </div>
 
-        <div style="flex: 1; min-width: 300px; position: sticky; top: 20px;">
-            <div class="checkout-container">
-                <h3 style="color: #593C28; margin-bottom: 20px;">Afrekenen</h3>
-                <form action="{{ url_for('main.checkout') }}" method="POST" id="checkoutForm">
-                    <div style="margin-bottom: 15px;">
-                        <label for="pickup_date" style="display: block; margin-bottom: 5px; font-weight: bold; color: #593C28;">Ophaaldatum:</label>
+        <div class="col-lg-4">
+            <div class="card shadow-sm border-0 sticky-top" style="top: 20px;">
+                <div class="card-header bg-brown text-white fw-bold">
+                    Afrekenen
+                </div>
+                <div class="card-body">
+                    <form action="{{ url_for('main.checkout') }}" method="POST" id="checkoutForm">
                         
-                        <input type="text" id="pickup_date" name="pickup_date" class="form-control" required 
-                               placeholder="Klik voor datum..."
-                               data-min-date="{{ min_date_str }}" 
-                               data-closed-days='{{ closed_days | tojson }}'
-                               data-specific-dates='{{ specific_closed_dates | tojson }}'
-                               data-shortages='{{ shortage_ingredients | tojson }}'
-                               style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
-                    </div>
-                    <div style="margin-bottom: 20px;">
-                        <label for="remarks" style="display: block; margin-bottom: 5px; font-weight: bold; color: #593C28;">Opmerkingen:</label>
-                        <textarea name="remarks" id="remarks" rows="3" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px;"></textarea>
-                    </div>
-                    
-                    <button type="submit" id="btn-submit-order" class="btn-bestel" style="width: 100%; padding: 12px; font-size: 1.1em; background-color: #593C28; color: white; border: none; border-radius: 6px; cursor: pointer;">
-                        AFREKENEN
-                    </button>
-                </form>
+                        <div class="mb-3">
+                            <label for="pickup_date" class="form-label fw-bold text-brown">Ophaaldatum</label>
+                            <input type="text" id="pickup_date" name="pickup_date" class="form-control bg-white" required 
+                                   placeholder="Klik voor datum..."
+                                   data-min-date="{{ min_date_str }}" 
+                                   data-closed-days='{{ closed_days | tojson }}'
+                                   data-specific-dates='{{ specific_closed_dates | tojson }}'
+                                   data-shortages='{{ shortage_ingredients | tojson }}'>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="remarks" class="form-label fw-bold text-brown">Opmerkingen</label>
+                            <textarea name="remarks" id="remarks" rows="3" class="form-control" placeholder="Bijv. gesneden, allergieën..."></textarea>
+                        </div>
+                        
+                        <button type="submit" id="btn-submit-order" class="btn btn-primary w-100 py-2 fs-5">
+                            BESTELLING PLAATSEN
+                        </button>
+                    </form>
+                </div>
             </div>
         </div>
 
     </div>
+
     {% else %}
-        <div class="empty-cart-container">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="#e0d6cc" style="width: 80px; height: 80px; margin-bottom: 20px;">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.0114 60.0114 0 0 0-16.536-1.84M7.5 14.25 5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
-            </svg>
-            
-            <h3>Je winkelwagen is leeg.</h3>
-            <p>Heb je honger? Neem snel een kijkje in ons assortiment!</p>
-            <a href="{{ url_for('main.index') }}" class="btn-bestel" style="display: inline-block; background-color: #593C28; color: white; padding: 12px 30px; text-decoration: none; border-radius: 30px;">
+        <div class="text-center py-5">
+            <div class="mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" fill="#e0d6cc" class="bi bi-cart-x" viewBox="0 0 16 16">
+                    <path d="M7.354 5.646a.5.5 0 1 0-.708.708L7.793 7.5 6.646 8.646a.5.5 0 1 0 .708.708L8.5 8.207l1.146 1.147a.5.5 0 0 0 .708-.708L9.207 7.5l1.147-1.146a.5.5 0 0 0-.708-.708L8.5 6.793 7.354 5.646z"/>
+                    <path d="M.5 1a.5.5 0 0 0 0 1h1.11l.401 1.607 1.498 7.985A.5.5 0 0 0 4 12h1a2 2 0 1 0 0 4 2 2 0 0 0 0-4h7a2 2 0 1 0 0 4 2 2 0 0 0 0-4h1a.5.5 0 0 0 .491-.408l1.5-8A.5.5 0 0 0 14.5 3H2.89l-.405-1.621A.5.5 0 0 0 2 1H.5zm3.915 10L3.102 4h10.796l-1.313 7h-8.17zM6 14a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm7 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
+                </svg>
+            </div>
+            <h3 class="text-brown">Je winkelwagen is leeg.</h3>
+            <p class="text-muted mb-4">Heb je honger? Neem snel een kijkje in ons assortiment!</p>
+            <a href="{{ url_for('main.index') }}" class="btn btn-primary rounded-pill px-4">
                 Naar de Winkel
             </a>
         </div>
     {% endif %}
 </div>
+
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const dateInput = document.getElementById('pickup_date');
@@ -155,8 +159,6 @@
             const minDate = dateInput.dataset.minDate;
             const closedDays = JSON.parse(dateInput.dataset.closedDays || '[]');
             const specificClosedDates = JSON.parse(dateInput.dataset.specificDates || '[]');
-            
-            // Lees data veilig uit het attribuut
             const shortages = JSON.parse(dateInput.dataset.shortages || '[]');
             const hasShortages = shortages.length > 0;
 
@@ -164,51 +166,28 @@
                 locale: "nl",
                 dateFormat: "Y-m-d",
                 minDate: minDate,
-                
                 disable: [
-                    function(date) {
-                        return closedDays.includes(date.getDay());
-                    },
+                    function(date) { return closedDays.includes(date.getDay()); },
                     ...specificClosedDates
                 ],
-                
                 disableMobile: "true",
                 firstDayOfWeek: 1,
                 
-                // --- SLIMME LOGICA VOOR 2 DAGEN REGEL ---
                 onChange: function(selectedDates, dateStr, instance) {
                     if (selectedDates.length === 0) return;
                     
                     const selectedDate = selectedDates[0];
                     const today = new Date();
-                    
-                    // We zetten de tijd op 00:00:00 om puur op datum te vergelijken
-                    today.setHours(0,0,0,0);
-                    selectedDate.setHours(0,0,0,0);
-
-                    // Bereken verschil in milliseconden en zet om naar dagen
-                    const diffTime = selectedDate - today;
+                    const diffTime = Math.abs(selectedDate - today);
                     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
 
-                    // REGEL: Blokkeer als het VANDAAG (0), MORGEN (1) of OVERMORGEN (2) is.
-                    // Vanaf dag 3 (dus "meer dan 2 dagen") mag het wel.
-                    // OUDE FOUT: stond op <= 3. NIEUWE CORRECTIE: <= 2.
-                    
-                    if (hasShortages && diffDays <= 2) { 
+                    if (hasShortages && diffDays <= 3) { 
                         warningBox.style.display = 'block';
                         missingListSpan.innerText = shortages.join(", ");
-                        
                         submitBtn.disabled = true;
-                        submitBtn.style.backgroundColor = "#ccc";
-                        submitBtn.style.cursor = "not-allowed";
-                        submitBtn.title = "Kies een datum verder in de toekomst";
                     } else {
-                        // Alles oké (of datum ver genoeg in toekomst)
                         warningBox.style.display = 'none';
                         submitBtn.disabled = false;
-                        submitBtn.style.backgroundColor = "#593C28";
-                        submitBtn.style.cursor = "pointer";
-                        submitBtn.title = "";
                     }
                 }
             });
