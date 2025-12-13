@@ -19,11 +19,15 @@ Maak render aan:Mathis
 met test admin account
 
 link feedback:Mathis
+Jasper render laten gebruiken: Mathis
+Handover:Mathis
 
 bootstrap testen;Roel
 
+run reset_orders en daarna seed_history voor demo begint: Alehan
 demo filmpje: Alehan
 fotos toevoegen: Alehan
 
+excel import: Emile
 
-run reset_orders en daarna seed_history voor demo begint: Alehan
+woensdag 17/12 10:00 afspreken laatste controle
