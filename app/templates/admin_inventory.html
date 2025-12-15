@@ -1,127 +1,215 @@
 {% extends "base.html" %}
 
 {% block content %}
-<link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.bootstrap5.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
 
-<div class="container py-4 mb-5">
+<style>
+    .ts-control {
+        border-radius: 4px;
+        padding: 10px;
+        border: 1px solid #ccc;
+        font-size: 1em;
+    }
+    .ts-wrapper.focus .ts-control {
+        border-color: #593C28;
+        box-shadow: 0 0 0 3px rgba(89, 60, 40, 0.1);
+    }
+    .ts-dropdown .active {
+        background-color: #f8f1e8;
+        color: #593C28;
+    }
+</style>
+
+<div class="container" style="margin-top: 40px; margin-bottom: 60px;">
     
-    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
-        <div class="d-flex align-items-center gap-3">
+    <div class="admin-header-container">
+        <div class="admin-header-text" style="display: flex; align-items: center; gap: 15px;">
             <div>
-                <h1 class="h2 text-brown fw-bold m-0">Voorraadbeheer</h1>
-                <p class="text-muted m-0">Beheer hier de ingrediënten en corrigeer voorraden.</p>
+                <h1>Voorraadbeheer</h1>
+                <p>Beheer hier de ingrediënten en corrigeer voorraden.</p>
             </div>
-            <form action="{{ url_for('main.refresh_inventory_forecast') }}" method="POST" class="m-0">
-                <button type="submit" class="btn btn-outline-secondary rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">🔄</button>
+            
+            <form action="{{ url_for('main.refresh_inventory_forecast') }}" method="POST" style="margin: 0;">
+                <button type="submit" title="Ververs 'Nodig' kolom (Herbereken AI)" 
+                        style="background: white; border: 1px solid #ccc; border-radius: 50%; width: 40px; height: 40px; cursor: pointer; font-size: 1.2em; transition: transform 0.2s;">
+                    🔄
+                </button>
             </form>
         </div>
-        <div class="btn-group flex-wrap">
-            <a href="{{ url_for('main.admin_dashboard') }}" class="btn btn-outline-dark">Dashboard</a>
-            <a href="{{ url_for('main.admin_inventory') }}" class="btn btn-primary">Voorraad</a>       
-            <a href="{{ url_for('main.admin_products') }}" class="btn btn-outline-dark">Producten</a>      
-            <a href="{{ url_for('main.admin_orders') }}" class="btn btn-outline-dark">Orders</a>
-            <a href="{{ url_for('main.admin_forecast') }}" class="btn btn-outline-dark">Forecast</a>
-            <a href="{{ url_for('main.admin_settings') }}" class="btn btn-outline-dark">Settings</a>
+        
+        <div style="display: flex; gap: 8px;">
+            <a href="{{ url_for('main.admin_dashboard') }}" class="btn-admin-nav">
+                Dashboard
+            </a>
+            <a href="{{ url_for('main.admin_inventory') }}" class="btn-admin-nav" style="background: white; color: #593C28; border: 2px solid #eee;">
+                Voorraad
+            </a>
+            
+            <a href="{{ url_for('main.admin_products') }}" class="btn-admin-nav">
+                Producten
+            </a>
+            <a href="{{ url_for('main.admin_orders') }}" class="btn-admin-nav">
+                Orders
+            </a>
+            
+            <a href="{{ url_for('main.admin_forecast') }}" class="btn-admin-nav">
+                Bak-Advies
+            </a>
+            <a href="{{ url_for('main.admin_settings') }}" class="btn-admin-nav">
+                Instellingen
+            </a>
         </div>
     </div>
 
-    <div class="card shadow-sm border-0 mb-5">
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
-                <thead class="bg-light">
-                    <tr>
-                        <th class="ps-3 text-brown">Ingrediënt</th>
-                        <th class="text-brown">Voorraad</th>
-                        <th class="text-brown">Nodig (7d)</th>
-                        <th class="text-brown">Status</th>
-                        <th class="text-brown ps-4">Actie</th>
+    <div class="cart-container table-responsive">
+        <table style="width: 100%; border-collapse: collapse; min-width: 800px;">
+            <thead>
+                <tr style="border-bottom: 2px solid #eee; text-align: left; color: #593C28;">
+                    <th style="padding: 15px;">Ingrediënt</th>
+                    <th style="padding: 15px;">Huidige Voorraad</th>
+                    <th style="padding: 15px;">Nodig (7 dgn)</th> <th style="padding: 15px;">Status</th>
+                    <th style="padding: 15px;">Actie</th> 
+                </tr>
+            </thead>
+            <tbody>
+                {% for ingredient in ingredients %}
+                    {% set needed = needs_map.get(ingredient.name, 0) %}
+                    
+                    <tr style="border-bottom: 1px solid #f0f0f0;">
+                        
+                        <td style="padding: 15px;"><strong>{{ ingredient.name }}</strong></td>
+                        
+                        <td style="padding: 15px; font-weight: bold; font-size: 1.1em;">
+                            {{ ingredient.stock_quantity }} {{ ingredient.unit }}
+                        </td>
+                        
+                        <td style="padding: 15px; color: #666;">
+                            {{ needed }} {{ ingredient.unit }}
+                        </td>
+                        
+                        <td style="padding: 15px;">
+                            {% if ingredient.stock_quantity < needed %}
+                                <span class="status-badge status-warn" title="Voorraad lager dan verwachte vraag">
+                                    ⚠️ BIJBESTELLEN
+                                </span>
+                            {% else %}
+                                <span class="status-badge status-ok">✅ OK</span>
+                            {% endif %}
+                        </td>
+                        
+                        <td style="padding: 15px;">
+                            <div style="display: flex; align-items: center;">
+                                
+                                <form action="{{ url_for('main.restock_ingredient') }}" method="POST" class="inventory-actions">
+                                    <input type="hidden" name="ingredient_id" value="{{ ingredient.id }}">
+                                    
+                                    <input type="number" name="amount" placeholder="0" min="1" required class="inventory-input">
+                                    
+                                    <button type="submit" class="inventory-btn btn-restock" title="Bijvullen">
+                                        +
+                                    </button>
+                                </form>
+
+                                <span class="divider">|</span>
+
+                                <form action="{{ url_for('main.waste_ingredient') }}" method="POST" class="inventory-actions">
+                                    <input type="hidden" name="ingredient_id" value="{{ ingredient.id }}">
+                                    
+                                    <input type="number" name="amount" placeholder="0" min="1" required class="inventory-input" style="border-color: #E63946; color: #E63946;">
+                                    
+                                    <button type="submit" class="inventory-btn btn-waste" title="Afschrijven">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="white" width="18" height="18">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                                        </svg>
+                                    </button>
+                                </form>
+
+                            </div>
+                        </td>
+                        
                     </tr>
-                </thead>
-                <tbody>
-                    {% for ingredient in ingredients %}
-                        {% set needed = needs_map.get(ingredient.name, 0) %}
-                        <tr>
-                            <td class="ps-3 fw-bold">{{ ingredient.name }}</td>
-                            <td class="fs-5">{{ ingredient.stock_quantity }} <small class="text-muted fs-6">{{ ingredient.unit }}</small></td>
-                            <td class="text-muted">{{ needed }} {{ ingredient.unit }}</td>
-                            <td>
-                                {% if ingredient.stock_quantity < needed %}
-                                    <span class="badge bg-warning text-dark">⚠️ Bijbestellen</span>
-                                {% else %}
-                                    <span class="badge bg-success">✅ OK</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                <div class="d-flex gap-2">
-                                    <form action="{{ url_for('main.restock_ingredient') }}" method="POST" class="d-flex m-0">
-                                        <input type="hidden" name="ingredient_id" value="{{ ingredient.id }}">
-                                        <div class="input-group input-group-sm" style="width: 110px;">
-                                            <input type="number" name="amount" placeholder="0" min="1" required class="form-control text-center quantity-input">
-                                            <button type="submit" class="btn btn-success">+</button>
-                                        </div>
-                                    </form>
-                                    <div class="vr text-muted my-1"></div>
-                                    <form action="{{ url_for('main.waste_ingredient') }}" method="POST" class="d-flex m-0">
-                                        <input type="hidden" name="ingredient_id" value="{{ ingredient.id }}">
-                                        <div class="input-group input-group-sm" style="width: 110px;">
-                                            <input type="number" name="amount" placeholder="0" min="1" required class="form-control text-center border-danger text-danger quantity-input">
-                                            <button type="submit" class="btn btn-danger">🗑️</button>
-                                        </div>
-                                    </form>
-                                </div>
-                            </td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+                {% else %}
+                    <tr>
+                        <td colspan="5" style="padding: 30px; text-align: center;">Geen ingrediënten gevonden in de database.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 
-    <div class="row g-4">
-        <div class="col-lg-6">
-            <div class="card shadow-sm border-danger border-2 h-100">
-                <div class="card-header bg-danger text-white fw-bold">🍞 Product Afschrijving</div>
-                <div class="card-body">
-                    <form action="{{ url_for('main.process_product_waste') }}" method="POST" class="row g-2 align-items-end">
-                        <div class="col-8">
-                            <label class="small fw-bold">Product</label>
-                            <select name="product_id" class="searchable-select"><option value="">Kies...</option>{% for p in products %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}</select>
-                        </div>
-                        <div class="col-4">
-                            <label class="small fw-bold">Aantal</label>
-                            <input type="number" name="quantity" class="form-control">
-                        </div>
-                        <div class="col-12"><button class="btn btn-danger w-100">Verwerk</button></div>
-                    </form>
-                </div>
+    <div class="cart-container" style="margin-top: 40px; border: 2px solid #E63946;">
+        <h3 style="color: #E63946; margin-bottom: 15px;">🍞 Product Afschrijving (Verspilling)</h3>
+        <p style="color: #666; margin-bottom: 20px;">
+            Heb je producten gebakken die niet verkocht zijn? Geef het hier in. <br>
+            De ingrediënten worden dan automatisch van de voorraad afgetrokken.
+        </p>
+        
+        <form action="{{ url_for('main.process_product_waste') }}" method="POST" style="display: flex; gap: 20px; align-items: flex-end; flex-wrap: wrap;">
+            
+            <div style="flex: 1; min-width: 250px;">
+                <label class="form-label">Welk Product?</label>
+                <select name="product_id" class="searchable-select" required placeholder="Typ om te zoeken...">
+                    <option value="">Kies een product...</option>
+                    {% for p in products %}
+                        <option value="{{ p.id }}">{{ p.name }}</option>
+                    {% endfor %}
+                </select>
             </div>
-        </div>
-        <div class="col-lg-6">
-            <div class="card shadow-sm border-success border-2 h-100 bg-light">
-                <div class="card-header bg-success text-white fw-bold">📉 Gemiste Verkoop</div>
-                <div class="card-body">
-                    <form action="{{ url_for('main.register_missed_sale') }}" method="POST" class="row g-2 align-items-end">
-                        <div class="col-8">
-                            <label class="small fw-bold text-success">Product</label>
-                            <select name="product_id" class="searchable-select"><option value="">Kies...</option>{% for p in products %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}</select>
-                        </div>
-                        <div class="col-4">
-                            <label class="small fw-bold text-success">Aantal</label>
-                            <input type="number" name="quantity" class="form-control">
-                        </div>
-                        <div class="col-12"><button class="btn btn-success w-100">Registreer</button></div>
-                    </form>
-                </div>
+
+            <div style="width: 150px;">
+                <label class="form-label">Aantal Weggegooid</label>
+                <input type="number" name="quantity" min="1" placeholder="bv. 5" class="form-input" required>
             </div>
-        </div>
+
+            <button type="submit" class="btn-bestel" style="background-color: #E63946; height: 42px; border: none;">
+                Verwerk Afschrijving
+            </button>
+        </form>
+    </div>
+
+    <div class="cart-container" style="margin-top: 30px; border: 2px solid #2E7D32; background-color: #F1F8E9;">
+        <h3 style="color: #2E7D32; margin-bottom: 15px;">📉 Gemiste Verkoop (Uitverkocht)</h3>
+        <p style="color: #555; margin-bottom: 20px;">
+            Kwam er een klant voor een product dat <strong>op</strong> was? Geef het hier in.<br>
+            Het systeem telt dit mee als "Vraag" zodat de AI volgende keer <strong>meer</strong> zal voorspellen.
+        </p>
+        
+        <form action="{{ url_for('main.register_missed_sale') }}" method="POST" style="display: flex; gap: 20px; align-items: flex-end; flex-wrap: wrap;">
+            
+            <div style="flex: 1; min-width: 250px;">
+                <label class="form-label">Welk Product?</label>
+                <select name="product_id" class="searchable-select" required placeholder="Typ om te zoeken...">
+                    <option value="">Kies een product...</option>
+                    {% for p in products %}
+                        <option value="{{ p.id }}">{{ p.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div style="width: 150px;">
+                <label class="form-label">Aantal Gemist</label>
+                <input type="number" name="quantity" min="1" placeholder="bv. 2" class="form-input" required>
+            </div>
+
+            <button type="submit" class="btn-bestel" style="background-color: #2E7D32; height: 42px; border: none;">
+                Registreer Vraag
+            </button>
+        </form>
     </div>
 </div>
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         document.querySelectorAll('.searchable-select').forEach((el) => {
-            new TomSelect(el, { create: false, sortField: { field: "text", direction: "asc" }});
+            new TomSelect(el, {
+                create: false, 
+                sortField: {
+                    field: "text",
+                    direction: "asc"
+                },
+                placeholder: "Typ om te zoeken..."
+            });
         });
     });
 </script>

@@ -398,7 +398,7 @@ def get_cart_recommendations(current_cart_ids):
                 score += 2
         
         # C. Strafpunten voor bulk (+/-)
-        if prod.category == 'pistoles':
+        if prod.category == 'pistolets':
             score -= 2
         elif prod.category == 'brood':
             score -= 1
