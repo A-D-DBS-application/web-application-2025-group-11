@@ -1,179 +1,250 @@
 {% extends "base.html" %}
 
 {% block content %}
-<link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.bootstrap5.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
 
-<div class="container py-4 mb-5">
+<style>
+    .ts-control {
+        border-radius: 4px;
+        padding: 10px;
+        border: 1px solid #ccc;
+        font-size: 1em;
+    }
+    .ts-wrapper.focus .ts-control {
+        border-color: #593C28;
+        box-shadow: 0 0 0 3px rgba(89, 60, 40, 0.1);
+    }
+    .ts-dropdown .active {
+        background-color: #f8f1e8;
+        color: #593C28;
+    }
+</style>
+
+<div class="container" style="margin-top: 40px; margin-bottom: 60px;">
     
-    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
-        <div>
-            <h1 class="h2 text-brown fw-bold m-0">Instellingen</h1>
-            <p class="text-muted m-0">Beheer algemene gegevens en de website.</p>
+    <div class="admin-header-container">
+        <div class="admin-header-text">
+            <h1>Instellingen</h1>
+            <p>Beheer algemene gegevens, openingstijden en de website.</p>
         </div>
-        <div class="btn-group flex-wrap">
-            <a href="{{ url_for('main.admin_dashboard') }}" class="btn btn-outline-dark">Dashboard</a>
-            <a href="{{ url_for('main.admin_inventory') }}" class="btn btn-outline-dark">Voorraad</a>       
-            <a href="{{ url_for('main.admin_products') }}" class="btn btn-outline-dark">Producten</a>      
-            <a href="{{ url_for('main.admin_orders') }}" class="btn btn-outline-dark">Orders</a>
-            <a href="{{ url_for('main.admin_forecast') }}" class="btn btn-outline-dark">Forecast</a>
-            <a href="{{ url_for('main.admin_settings') }}" class="btn btn-primary">Settings</a>
+        
+        <div style="display: flex; gap: 8px;">
+            <a href="{{ url_for('main.admin_dashboard') }}" class="btn-admin-nav">Dashboard</a>
+            <a href="{{ url_for('main.admin_inventory') }}" class="btn-admin-nav">Voorraad</a>
+            <a href="{{ url_for('main.admin_products') }}" class="btn-admin-nav">Producten</a>
+            <a href="{{ url_for('main.admin_orders') }}" class="btn-admin-nav">Orders</a>
+            <a href="{{ url_for('main.admin_forecast') }}" class="btn-admin-nav">Bak-Advies</a>
+            <a href="{{ url_for('main.admin_settings') }}" class="btn-admin-nav" style="background: white; color: #593C28; border: 2px solid #eee;">Instellingen</a>
         </div>
     </div>
 
-    <div class="row g-4">
+    <div style="display: flex; gap: 40px; flex-wrap: wrap;">
         
-        <div class="col-lg-7">
-            <div class="card shadow-sm border-0">
-                <div class="card-header bg-white fw-bold text-brown py-3">🏠 Website Instellingen</div>
-                <div class="card-body">
-                    <form action="{{ url_for('main.update_settings') }}" method="POST" enctype="multipart/form-data">
-                        
-                        <div class="mb-3">
-                            <label class="form-label fw-bold small text-muted">Titel op Homepage</label>
-                            <input type="text" name="welcome_title" value="{{ settings.welcome_title }}" class="form-control">
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label class="form-label fw-bold small text-muted">Welkomsttekst</label>
-                            <textarea name="welcome_text" rows="2" class="form-control">{{ settings.welcome_text }}</textarea>
-                        </div>
+        <div style="flex: 2; min-width: 400px;">
+            <div class="cart-container">
+                <h3 style="color: #593C28; margin-bottom: 20px;">🏠 Website Instellingen</h3>
+                
+                <form action="{{ url_for('main.update_settings') }}" method="POST" enctype="multipart/form-data">
+                    
+                    <div class="form-group">
+                        <label class="form-label">Titel op Homepage</label>
+                        <input type="text" name="welcome_title" value="{{ settings.welcome_title }}" class="form-input">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Welkomsttekst (Kort)</label>
+                        <textarea name="welcome_text" rows="3" class="form-input" style="font-family: inherit;">{{ settings.welcome_text }}</textarea>
+                    </div>
 
-                        <div class="row g-3 mb-4">
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold small text-muted">Deadline (Uur)</label>
-                                <div class="input-group">
-                                    <input type="number" name="deadline_hour" value="{{ settings.deadline_hour }}" min="0" max="23" class="form-control">
-                                    <span class="input-group-text">u00</span>
+                    <div class="form-group">
+                        <label class="form-label">Introductie Paragraaf</label>
+                        <textarea name="intro_text" rows="6" class="form-input" style="font-family: inherit;">{{ settings.intro_text }}</textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Deadline Bestellen Volgende Dag (Uur)</label>
+                        <input type="number" name="deadline_hour" value="{{ settings.deadline_hour }}" min="0" max="23" class="form-input" style="width: 80px;">
+                        <small style="color: #666;">Uur (bv. 17 voor 17:00)</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Annuleringstermijn (Dagen)</label>
+                        <input type="number" name="cancellation_days" value="{{ settings.cancellation_days if settings.cancellation_days is not none else 2 }}" min="0" max="30" class="form-input" style="width: 80px;">
+                        <small style="color: #666;">Hoeveel dagen op voorhand mag een klant annuleren?</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Grote Foto Hoofdpagina</label>
+                        {% if settings.hero_image_url %}
+                            <div style="margin-bottom: 10px;">
+                                <img src="{{ settings.hero_image_url | product_img }}" style="height: 120px; border-radius: 8px; object-fit: cover;">
+                            </div>
+                        {% endif %}
+                        <input type="file" name="hero_image_file" accept="image/*" class="form-input" style="font-size: 0.9em;">
+                    </div>
+
+                    <hr class="separator">
+
+                    <h4 class="section-title">Contactgegevens</h4>
+
+                    <div style="display: flex; gap: 15px;">
+                        <div style="flex: 1;">
+                            <label class="form-label">Email</label>
+                            <input type="text" name="email_address" value="{{ settings.email_address }}" class="form-input">
+                        </div>
+                        <div style="flex: 1;">
+                            <label class="form-label">Telefoon</label>
+                            <input type="text" name="phone_number" value="{{ settings.phone_number }}" class="form-input">
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="margin-top: 15px;">
+                        <label class="form-label">Adres</label>
+                        <input type="text" name="address_text" value="{{ settings.address_text }}" class="form-input">
+                    </div>
+
+                    <hr class="separator">
+
+                    <h4 class="section-title">🕒 Openingsuren</h4>
+                    
+                    <div class="form-group" style="margin-bottom: 20px;">
+                        <label class="form-label">Uitzonderlijke Sluitingsdagen</label>
+                        <input type="text" id="closed_dates_input" name="closed_dates_input" 
+                               placeholder="Klik om datums te kiezen..." 
+                               class="form-input"
+                               value="{% if settings.closed_dates_json %}{{ settings.closed_dates_json|replace('[','',)|replace(']','',)|replace('"','') }}{% endif %}">
+                        <small style="color: #666;">Selecteer vakantiedagen of feestdagen.</small>
+                    </div>
+
+                    <p style="font-size: 0.9em; color: #666; margin-bottom: 10px;">
+                        Wekelijks rooster (Vink aan als de winkel dicht is):
+                    </p>
+
+                    <div class="schedule-container">
+                        {% for i in range(7) %}
+                            {% set is_gesloten = schedule[i|string]['closed'] %}
+                            {% set uren_tekst = schedule[i|string]['text'] %}
+                            
+                            <div class="schedule-row">
+                                <div class="day-label">{{ days_names[i] }}</div>
+                                
+                                <div class="checkbox-wrapper">
+                                    <input type="checkbox" 
+                                           id="closed_{{ i }}" 
+                                           name="day_{{ i }}_closed" 
+                                           data-index="{{ i }}"
+                                           onchange="toggleInput(this)"
+                                           {% if is_gesloten %}checked{% endif %}>
+                                    <label for="closed_{{ i }}">Dicht</label>
                                 </div>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold small text-muted">Annuleren tot (Dagen)</label>
-                                <input type="number" name="cancellation_days" value="{{ settings.cancellation_days }}" min="0" class="form-control">
-                            </div>
-                        </div>
 
-                        <h6 class="text-brown border-bottom pb-2 mb-3">Contactgegevens</h6>
-                        <div class="row g-3 mb-3">
-                            <div class="col-md-6">
-                                <label class="form-label small">Email</label>
-                                <input type="text" name="email_address" value="{{ settings.email_address }}" class="form-control">
+                                <input type="text" 
+                                       id="text_{{ i }}" 
+                                       name="day_{{ i }}_text" 
+                                       value="{{ uren_tekst }}" 
+                                       class="form-input schedule-input {% if is_gesloten %}disabled{% endif %}">
                             </div>
-                            <div class="col-md-6">
-                                <label class="form-label small">Telefoon</label>
-                                <input type="text" name="phone_number" value="{{ settings.phone_number }}" class="form-control">
-                            </div>
-                            <div class="col-12">
-                                <label class="form-label small">Adres</label>
-                                <input type="text" name="address_text" value="{{ settings.address_text }}" class="form-control">
-                            </div>
-                        </div>
-
-                        <h6 class="text-brown border-bottom pb-2 mb-3">🕒 Openingsuren</h6>
-                        
-                        <div class="mb-3">
-                            <label class="form-label small fw-bold">Uitzonderlijk gesloten</label>
-                            <input type="text" id="closed_dates_input" name="closed_dates_input" class="form-control bg-white" placeholder="Kies datums..." 
-                                   value="{% if settings.closed_dates_json %}{{ settings.closed_dates_json|replace('[','',)|replace(']','',)|replace('"','') }}{% endif %}">
-                        </div>
-
-                        <div class="border rounded p-3 bg-light mb-4">
-                            {% for i in range(7) %}
-                                {% set is_gesloten = schedule[i|string]['closed'] %}
-                                <div class="row align-items-center mb-2">
-                                    <div class="col-3 fw-bold text-brown small">{{ days_names[i] }}</div>
-                                    <div class="col-auto">
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="checkbox" id="closed_{{ i }}" name="day_{{ i }}_closed" onchange="toggleInput(this)" {% if is_gesloten %}checked{% endif %}>
-                                            <label class="form-check-label small" for="closed_{{ i }}">Dicht</label>
-                                        </div>
-                                    </div>
-                                    <div class="col">
-                                        <input type="text" id="text_{{ i }}" name="day_{{ i }}_text" value="{{ schedule[i|string]['text'] }}" class="form-control form-control-sm" {% if is_gesloten %}disabled{% endif %}>
-                                    </div>
-                                </div>
-                            {% endfor %}
-                        </div>
-
-                        <button type="submit" class="btn btn-success w-100 fw-bold">Opslaan</button>
-                    </form>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-lg-5">
-            
-            <div class="card shadow-sm border-0 mb-4">
-                <div class="card-header bg-white fw-bold text-brown py-3">📂 Categorieën</div>
-                <div class="card-body">
-                    <div class="d-flex flex-wrap gap-2 mb-3">
-                        {% for cat in categories %}
-                            <span class="badge bg-light text-dark border p-2 d-flex align-items-center gap-2">
-                                {{ cat|capitalize }}
-                                <form action="{{ url_for('main.delete_category') }}" method="POST" class="m-0">
-                                    <input type="hidden" name="category_name" value="{{ cat }}">
-                                    <button type="submit" class="btn-close btn-close-sm" onclick="return confirm('Verwijderen?');"></button>
-                                </form>
-                            </span>
                         {% endfor %}
                     </div>
-                    <form action="{{ url_for('main.add_category') }}" method="POST" class="input-group">
-                        <input type="text" name="new_category" placeholder="Nieuwe categorie..." class="form-control" required>
-                        <button type="submit" class="btn btn-outline-success">+</button>
-                    </form>
-                </div>
+
+                    <button type="submit" class="btn-bestel" style="margin-top: 25px; width: 100%; padding: 15px; height: auto; font-size: 1.1rem;">
+                        INSTELLINGEN OPSLAAN
+                    </button>
+                </form>
             </div>
-
-            <div class="card shadow-sm border-0 bg-light">
-                <div class="card-header bg-warning bg-opacity-25 fw-bold text-brown py-3">👮 Beheerders</div>
-                <div class="card-body">
-                    <ul class="list-group mb-3 shadow-sm">
-                        {% for admin in admins %}
-                        <li class="list-group-item d-flex justify-content-between align-items-center p-2">
-                            <span>{{ admin.full_name }}</span>
-                            <form action="{{ url_for('main.toggle_admin') }}" method="POST" class="m-0">
-                                <input type="hidden" name="user_id" value="{{ admin.id }}">
-                                <input type="hidden" name="action" value="remove">
-                                <button type="submit" class="btn btn-sm btn-outline-danger border-0">✕</button>
-                            </form>
-                        </li>
-                        {% endfor %}
-                    </ul>
-
-                    <form action="{{ url_for('main.toggle_admin') }}" method="POST">
-                        <input type="hidden" name="action" value="add">
-                        <label class="form-label small fw-bold">Nieuwe Admin:</label>
-                        <div class="d-flex gap-2">
-                            <div class="flex-grow-1">
-                                <select name="user_id" class="searchable-select" placeholder="Zoek gebruiker...">
-                                    <option value="">Kies...</option>
-                                    {% for user in users %}
-                                        <option value="{{ user.id }}">{{ user.full_name }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            <button type="submit" class="btn btn-warning">Toevoegen</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-
         </div>
+
+        <div style="flex: 1; min-width: 300px; display: flex; flex-direction: column; gap: 30px;">
+            
+            <div class="cart-container" style="background-color: #F1F8E9; border: 1px solid #C8E6C9;">
+                <h3 style="color: #2E7D32; margin-bottom: 15px;">📂 Categorieën</h3>
+                <p style="font-size: 0.9em; color: #555; margin-bottom: 15px;">Beheer hier de productgroepen (filters op de homepagina).</p>
+
+                <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px;">
+                    {% for cat in categories %}
+                        <div style="background: white; padding: 6px 12px; border-radius: 20px; display: flex; align-items: center; gap: 8px; font-weight: bold; font-size: 0.9em; border: 1px solid #C8E6C9;">
+                            {{ cat|capitalize }}
+                            
+                            <form action="{{ url_for('main.delete_category') }}" method="POST" style="margin:0; display:flex;">
+                                <input type="hidden" name="category_name" value="{{ cat }}">
+                                <button type="submit" style="background: none; border: none; color: #E63946; font-weight: bold; cursor: pointer; padding: 0; line-height: 1;" title="Verwijder" onclick="return confirm('Categorie verwijderen?');">×</button>
+                            </form>
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <form action="{{ url_for('main.add_category') }}" method="POST" style="display: flex; gap: 10px;">
+                    <input type="text" name="new_category" placeholder="Nieuwe categorie..." class="form-input" required style="padding: 8px;">
+                    <button type="submit" class="btn-admin-nav" style="background: #4CAF50; border-color: #4CAF50; color: white;">+</button>
+                </form>
+            </div>
+
+            <div class="cart-container" style="background-color: #fffaf0; border: 1px solid #e0d6cc;">
+                <h3 style="color: #593C28; margin-bottom: 20px;">👮 Beheerders</h3>
+                
+                <ul style="list-style: none; padding: 0; margin-bottom: 20px;">
+                    {% for admin in admins %}
+                    <li style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee;">
+                        <span>{{ admin.full_name }}</span>
+                        <form action="{{ url_for('main.toggle_admin') }}" method="POST">
+                            <input type="hidden" name="user_id" value="{{ admin.id }}">
+                            <input type="hidden" name="action" value="remove">
+                            <button type="submit" style="background: none; border: none; color: #E63946; cursor: pointer;">✕</button>
+                        </form>
+                    </li>
+                    {% endfor %}
+                </ul>
+
+                <hr class="separator" style="border-top: 1px solid #ddd;">
+
+                <p style="margin-bottom: 10px; font-size: 0.9em; font-weight: bold;">Nieuwe Admin Toevoegen:</p>
+                <form action="{{ url_for('main.toggle_admin') }}" method="POST">
+                    <input type="hidden" name="action" value="add">
+                    <div style="margin-bottom: 10px;">
+                        
+                        <select name="user_id" class="searchable-select" placeholder="Typ naam om te zoeken...">
+                            <option value="">Kies een gebruiker...</option>
+                            {% for user in users %}
+                                <option value="{{ user.id }}">{{ user.full_name }}</option>
+                            {% endfor %}
+                        </select>
+
+                    </div>
+                    <button type="submit" class="btn-admin-nav" style="width: 100%; justify-content: center;">Maak Admin</button>
+                </form>
+            </div>
+        </div>
+
     </div>
 </div>
 
 <script>
     function toggleInput(el) {
-        var dayIndex = el.id.split('_')[1];
+        var dayIndex = el.dataset.index;
         var input = document.getElementById('text_' + dayIndex);
-        input.disabled = el.checked;
+        
+        if (el.checked) {
+            input.classList.add('disabled');
+        } else {
+            input.classList.remove('disabled');
+        }
     }
 
     document.addEventListener('DOMContentLoaded', function() {
-        flatpickr("#closed_dates_input", { mode: "multiple", dateFormat: "Y-m-d", locale: "nl" });
         
+        flatpickr("#closed_dates_input", {
+            mode: "multiple",
+            dateFormat: "Y-m-d",
+            locale: "nl"
+        });
+
         document.querySelectorAll('.searchable-select').forEach((el) => {
-            new TomSelect(el, { create: false, sortField: { field: "text", direction: "asc" }});
+            new TomSelect(el, {
+                create: false,
+                sortField: { field: "text", direction: "asc" },
+                placeholder: "Typ om te zoeken..."
+            });
         });
     });
 </script>
