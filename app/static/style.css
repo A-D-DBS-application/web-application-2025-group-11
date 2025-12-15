@@ -479,3 +479,19 @@ h1, h2, h3, h4 { color: #593C28; }
 .user-dropdown-container:hover .user-dropdown-content {
     display: block;
 }
+
+
+.ts-control {
+   border-radius: 4px;
+    padding: 10px;
+    border: 1px solid #ccc;
+    font-size: 1em;
+}
+.ts-wrapper.focus .ts-control {
+    border-color: #593C28;
+    box-shadow: 0 0 0 3px rgba(89, 60, 40, 0.1);
+}
+.ts-dropdown .active {
+    background-color: #f8f1e8;
+    color: #593C28;
+}
