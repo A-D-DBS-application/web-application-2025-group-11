@@ -44,7 +44,7 @@ def get_settings():
 def get_categories():
     """Haalt categorieën uit DB of geeft defaults terug."""
     settings = get_settings()
-    defaults = ["brood", "pistoles", "koffiekoeken"]
+    defaults = ["brood", "pistolets", "koffiekoeken"]
     
     if settings.product_categories_json:
         try:
@@ -128,6 +128,16 @@ def inject_global_vars():
         today=today_date,
         categories=categories
     )
+
+@main.app_errorhandler(404)
+def page_not_found(e):
+    return render_template('404.html'), 404
+
+@main.app_errorhandler(500)
+def internal_server_error(e):
+    print(f"🔥 500 ERROR: {e}")
+    db.session.rollback()
+    return render_template('500.html'), 500
 
 
 # ==============================================================================
@@ -297,8 +307,18 @@ def login():
                 return redirect(url_for('main.admin_dashboard'))
             
             return redirect(url_for('main.index'))
-        except Exception:
-            return render_template('login.html', error="E-mailadres of wachtwoord is onjuist.")
+        except Exception as e:
+            err_msg = str(e)
+            print(f"Login error: {err_msg}")
+            
+            if "Email not confirmed" in err_msg:
+                error = "Bevestig eerst je e-mailadres via de link die je hebt ontvangen."
+            elif "Invalid login credentials" in err_msg:
+                error = "E-mailadres of wachtwoord is onjuist."
+            else:
+                error = "Inloggen mislukt. Probeer het later opnieuw."
+                
+            return render_template('login.html', error=error)
     return render_template('login.html')
 
 @main.route('/register', methods=['GET', 'POST'])
@@ -334,8 +354,17 @@ def register():
                 
         except Exception as e:
             db.session.rollback()
-            print(f"Registratie fout: {e}") 
-            return render_template('register.html', error=str(e))
+            err_msg = str(e)
+            print(f"Registratie fout: {err_msg}")
+            
+            if "User already registered" in err_msg or "already exists" in err_msg:
+                dutch_error = "Er bestaat al een account met dit e-mailadres."
+            elif "Password should be at least" in err_msg:
+                dutch_error = "Het wachtwoord moet minimaal 6 tekens lang zijn."
+            else:
+                dutch_error = "Er is iets misgegaan. Controleer je gegevens."
+                
+            return render_template('register.html', error=dutch_error)
             
     return render_template('register.html')
 

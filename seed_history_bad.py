@@ -175,7 +175,7 @@ def run_bad_seeder():
                 calc_total = Decimal(0)
                 for prod in chosen:
                     qty = 1
-                    if 'pistole' in prod.category: qty = random.choice([2, 4, 6])
+                    if 'pistolet' in prod.category: qty = random.choice([2, 4, 6])
                     
                     calc_total += prod.price * Decimal(qty)
                     order.items.append(OrderItem(product=prod, quantity=qty, unit_price_at_order=prod.price))
