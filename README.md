@@ -12,6 +12,9 @@ venv\Scripts\activate
 pip install -r requirements.txt
 python run.py
 
+bootstrap:
+De applicatie werkt perfect voor ipad en computer (2 devices), de interface voor de klant werkt ook perfect op gsm maar alleen de interface speciaal voor de bakker zelf is niet optimaal op de gsm maar volgens ons is het niet belangrijk dat de bakker hiervoor zijn gsm kan gebruiken, aangezien het sowieso makkelijker gaat op een ipad of computer.
+
 
 link user stories: marie
 

@@ -1,81 +1,83 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container py-5" style="max-width: 900px;">
+<div class="container" style="margin-top: 50px; max-width: 900px; margin-bottom: 80px;">
     
-    <div class="d-flex flex-column flex-md-row justify-content-between align-items-center mb-4 gap-3">
-        <h1 class="h2 text-brown fw-bold m-0">Mijn Bestellingen</h1>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 20px;">
+        <h1 style="margin: 0; color: #593C28;">Mijn Bestellingen</h1>
         
-        <button class="btn btn-outline-dark d-flex align-items-center gap-2" type="button" data-bs-toggle="collapse" data-bs-target="#filterMenu" aria-expanded="false" aria-controls="filterMenu">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-funnel" viewBox="0 0 16 16">
-                <path d="M1.5 1.5A.5.5 0 0 1 2 1h12a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.128.334L10 8.692V13.5a.5.5 0 0 1-.342.474l-3 1A.5.5 0 0 1 6 14.5V8.692L1.628 3.834A.5.5 0 0 1 1.5 3.5v-2zm1 .5v1.308l4.372 4.858A.5.5 0 0 1 7 8.5v5.306l2-.666V8.5a.5.5 0 0 1 .128-.334L13.5 3.308V2h-11z"/>
-            </svg>
-            Zoeken & Filteren
+        <button onclick="toggleFilters()" class="btn-admin-nav" style="background: white; color: #593C28; border: 2px solid #593C28; cursor: pointer;">
+            🔍 Zoeken & Filteren
         </button>
     </div>
 
-    <div class="alert alert-warning d-flex align-items-center shadow-sm" role="alert">
-        <span class="fs-4 me-3">ℹ️</span>
-        <div>
-            <strong>Info:</strong> Annuleren kan kosteloos tot <strong>{{ settings.cancellation_days }} dagen</strong> voor de ophaaldatum.
-        </div>
+    <div style="background-color: #fff3cd; color: #856404; padding: 10px 15px; border-radius: 8px; margin-bottom: 30px; border: 1px solid #ffeeba; font-size: 0.95em; display: flex; align-items: center; gap: 10px;">
+        <span>ℹ️</span>
+        <span><strong>Info:</strong> Bestellingen kunnen kosteloos geannuleerd worden tot <strong>{{ settings.cancellation_days }} {{ 'dag' if settings.cancellation_days == 1 else 'dagen' }}</strong> voor de ophaaldatum.</span>
     </div>
 
-    <div class="collapse mb-4 {{ 'show' if (filters.date or filters.product or filters.price) else '' }}" id="filterMenu">
-        <div class="card card-body bg-light border-0 shadow-sm">
-            <form method="GET" action="{{ url_for('main.my_orders') }}" class="row g-3 align-items-end">
-                <div class="col-md-4">
-                    <label class="form-label fw-bold small text-muted">Ophaaldatum</label>
-                    <input type="date" name="filter_date" value="{{ filters.date }}" class="form-control">
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label fw-bold small text-muted">Bevat Product</label>
-                    <input type="text" name="filter_product" value="{{ filters.product }}" placeholder="bv. Croissant" class="form-control">
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label fw-bold small text-muted">Min. €</label>
-                    <input type="number" name="filter_price" value="{{ filters.price }}" placeholder="0" class="form-control">
-                </div>
-                <div class="col-md-2">
-                    <button type="submit" class="btn btn-primary w-100">Zoek</button>
-                </div>
-            </form>
+    <div id="filterMenu" 
+         class="{% if not (filters.date or filters.product or filters.price) %}hidden{% endif %}"
+         style="background: white; padding: 25px; border-radius: 15px; margin-bottom: 30px; border: 1px solid #eee; box-shadow: 0 5px 15px rgba(0,0,0,0.05);">
+        
+        <form method="GET" action="{{ url_for('main.my_orders') }}" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; align-items: end;">
             
-            {% if filters.date or filters.product or filters.price %}
-                <div class="text-center mt-3">
-                    <a href="{{ url_for('main.my_orders') }}" class="text-danger text-decoration-none small fw-bold">Filters wissen ✕</a>
-                </div>
-            {% endif %}
-        </div>
+            <div>
+                <label class="form-label" style="font-size: 0.9em;">Ophaaldatum</label>
+                <input type="date" name="filter_date" value="{{ filters.date }}" class="form-input">
+            </div>
+
+            <div>
+                <label class="form-label" style="font-size: 0.9em;">Bevat Product</label>
+                <input type="text" name="filter_product" value="{{ filters.product }}" placeholder="bv. Croissant" class="form-input">
+            </div>
+
+            <div>
+                <label class="form-label" style="font-size: 0.9em;">Min. Bedrag (€)</label>
+                <input type="number" name="filter_price" value="{{ filters.price }}" placeholder="0" class="form-input">
+            </div>
+
+            <div>
+                <button type="submit" class="btn-bestel" style="width: 100%; height: 42px;">Toepassen</button>
+            </div>
+        </form>
+        
+        {% if filters.date or filters.product or filters.price %}
+            <div style="margin-top: 15px; text-align: center;">
+                <a href="{{ url_for('main.my_orders') }}" style="color: #E63946; text-decoration: underline; font-size: 0.9em;">Filters wissen</a>
+            </div>
+        {% endif %}
     </div>
     
     {% if pagination.items %}
         {% for order in pagination.items %}
-        <div class="card shadow-sm border-0 mb-4">
+        <div class="cart-container" style="padding: 0; overflow: hidden; margin-bottom: 20px;">
             
-            <div class="card-header bg-white py-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <div style="background-color: #f9f9f9; padding: 15px 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                 <div>
-                    <strong class="text-brown fs-5">Bestelling #{{ order.id }}</strong>
-                    <div class="text-muted small">Geplaatst op: {{ order.created_at.strftime('%d-%m-%Y') }}</div>
+                    <strong style="color: #593C28;">Bestelling #{{ order.id }}</strong>
+                    <span style="color: #666; font-size: 0.9em; margin-left: 10px;">
+                        geplaatst op {{ order.created_at.strftime('%d-%m-%Y') }}
+                    </span>
                 </div>
                 
-                <div class="d-flex align-items-center gap-3">
+                <div style="display: flex; align-items: center; gap: 15px;">
                     {% if order.status == 'pending' %}
-                        <span class="badge bg-warning text-dark border border-warning">In verwerking ⏳</span>
+                        <span class="status-badge status-warn">In verwerking</span>
                     {% elif order.status == 'ready' %}
-                        <span class="badge bg-success">Staat klaar 📦</span>
+                        <span class="status-badge status-ok">Staat klaar</span>
                     {% elif order.status == 'picked_up' %}
-                        <span class="badge bg-secondary">Opgehaald ✅</span>
+                        <span class="status-badge" style="background:#4CAF50; color: white;">Opgehaald</span>
                     {% elif order.status == 'cancelled' %}
-                        <span class="badge bg-danger bg-opacity-10 text-danger border border-danger">Geannuleerd ✕</span>
+                        <span class="status-badge" style="background:#FFEBEE; color:#C62828;">Geannuleerd</span>
                     {% endif %}
 
                     {% if order.status == 'pending' %}
                         {% set days_left = (order.pickup_date - today).days %}
                         {% if days_left >= settings.cancellation_days %}
-                            <form action="{{ url_for('main.cancel_my_order', order_id=order.id) }}" method="POST" class="m-0" onsubmit="return confirm('Zeker weten?');">
-                                <button type="submit" class="btn btn-outline-danger btn-sm d-flex align-items-center gap-1">
-                                    <span>✕</span> <span class="d-none d-sm-inline">Annuleren</span>
+                            <form action="{{ url_for('main.cancel_my_order', order_id=order.id) }}" method="POST" style="margin:0;" onsubmit="return confirm('Weet je zeker dat je deze bestelling wilt annuleren?');">
+                                <button type="submit" class="btn-cancel-order" title="Annuleren">
+                                    ✕ Annuleren
                                 </button>
                             </form>
                         {% endif %}
@@ -83,49 +85,34 @@
                 </div>
             </div>
 
-            <div class="card-body">
-                <div class="row mb-3">
-                    <div class="col-sm-6 mb-2 mb-sm-0">
-                        <h6 class="fw-bold text-brown mb-1">📅 Ophaaldatum</h6>
-                        <p class="mb-1">
-                            {% if order.pickup_date %}
-                                {{ order.pickup_date.strftime('%d-%m-%Y') }}
-                            {% else %}
-                                <span class="text-muted">Onbekend</span>
-                            {% endif %}
-                        </p>
-                        
-                        <a href="{{ url_for('main.download_ical', order_id=order.id) }}" class="text-decoration-none small text-brown d-flex align-items-center gap-1">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" class="bi bi-calendar-plus" viewBox="0 0 16 16">
-                              <path d="M8 7a.5.5 0 0 1 .5.5V9H10a.5.5 0 0 1 0 1H8.5v1.5a.5.5 0 0 1-1 0V10H6a.5.5 0 0 1 0-1h1.5V7.5A.5.5 0 0 1 8 7"/>
-                              <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5M1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4z"/>
-                            </svg>
-                            Toevoegen aan agenda
-                        </a>
-
+            <div style="padding: 20px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                    <div>
+                        <strong>Ophaaldatum:</strong> 
+                        {% if order.pickup_date %}
+                            {{ order.pickup_date.strftime('%d-%m-%Y') }}
+                        {% else %} Onbekend {% endif %}
+                        <br>
                         {% if order.remarks %}
-                            <div class="mt-2 p-2 bg-light rounded small text-muted fst-italic border">
-                                "Opmerking: {{ order.remarks }}"
-                            </div>
+                            <em style="color: #888;">Opmerking: {{ order.remarks }}</em>
                         {% endif %}
+                        
+                        <div style="margin-top: 8px;">
+                            <a href="{{ url_for('main.download_ical', order_id=order.id) }}" style="color: #593C28; font-size: 0.9em; text-decoration: underline; display: flex; align-items: center; gap: 5px;">
+                                📅 Zet in mijn agenda
+                            </a>
+                        </div>
                     </div>
-                    
-                    <div class="col-sm-6 text-sm-end">
-                        <h6 class="fw-bold text-brown mb-1">Totaalbedrag</h6>
-                        <div class="fs-4 fw-bold text-brown">€ {{ order.total_price }}</div>
+                    <div style="text-align: right; font-size: 1.2em; font-weight: bold; color: #593C28;">
+                        Totaal: &euro; {{ order.total_price }}
                     </div>
                 </div>
-
-                <hr class="text-muted opacity-25">
-
-                <ul class="list-group list-group-flush">
+                <hr style="border-top: 1px dashed #eee; margin: 15px 0;">
+                <ul style="list-style: none; padding: 0;">
                     {% for item in order.items %}
-                        <li class="list-group-item px-0 py-2 d-flex justify-content-between align-items-center border-0">
-                            <span>
-                                <span class="fw-bold badge bg-brown text-white me-2" style="background-color: #593C28;">{{ item.quantity }}x</span> 
-                                {{ item.product.name }}
-                            </span>
-                            <span class="text-muted small">€ {{ item.unit_price_at_order }} /st</span>
+                        <li style="padding: 5px 0; display: flex; justify-content: space-between; color: #555;">
+                            <span>{{ item.quantity }}x {{ item.product.name }}</span>
+                            <span>&euro; {{ item.unit_price_at_order }} /st</span>
                         </li>
                     {% endfor %}
                 </ul>
@@ -134,51 +121,50 @@
         {% endfor %}
 
         {% if pagination.pages > 1 %}
-        <nav aria-label="Bestellingen navigatie">
-            <ul class="pagination justify-content-center">
-                <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
-                    <a class="page-link text-brown" href="{{ url_for('main.my_orders', page=pagination.prev_num, filter_date=filters.date, filter_product=filters.product, filter_price=filters.price) }}">&larr;</a>
-                </li>
-                
-                {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
-                    {% if page_num %}
-                        <li class="page-item {% if pagination.page == page_num %}active{% endif %}">
-                            <a class="page-link {% if pagination.page == page_num %}bg-brown border-brown{% else %}text-brown{% endif %}" 
-                               href="{{ url_for('main.my_orders', page=page_num, filter_date=filters.date, filter_product=filters.product, filter_price=filters.price) }}">
-                               {{ page_num }}
-                            </a>
-                        </li>
+        <div style="display: flex; justify-content: center; align-items: center; gap: 5px; margin-top: 40px;">
+            {% if pagination.has_prev %}
+                <a href="{{ url_for('main.my_orders', page=pagination.prev_num, filter_date=filters.date, filter_product=filters.product, filter_price=filters.price) }}" 
+                   class="btn-admin-nav" style="background: white; color: #593C28;">&larr;</a>
+            {% endif %}
+            
+            {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
+                {% if page_num %}
+                    {% if pagination.page == page_num %}
+                        <span class="btn-admin-nav" style="background-color: #593C28; color: white; border-color: #593C28; cursor: default;">{{ page_num }}</span>
                     {% else %}
-                        <li class="page-item disabled"><span class="page-link">...</span></li>
+                        <a href="{{ url_for('main.my_orders', page=page_num, filter_date=filters.date, filter_product=filters.product, filter_price=filters.price) }}" 
+                           class="btn-admin-nav" style="background-color: white; color: #593C28;">{{ page_num }}</a>
                     {% endif %}
-                {% endfor %}
-                
-                <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
-                    <a class="page-link text-brown" href="{{ url_for('main.my_orders', page=pagination.next_num, filter_date=filters.date, filter_product=filters.product, filter_price=filters.price) }}">&rarr;</a>
-                </li>
-            </ul>
-        </nav>
+                {% else %}
+                    <span style="color: #999;">...</span>
+                {% endif %}
+            {% endfor %}
+            
+            {% if pagination.has_next %}
+                <a href="{{ url_for('main.my_orders', page=pagination.next_num, filter_date=filters.date, filter_product=filters.product, filter_price=filters.price) }}" 
+                   class="btn-admin-nav" style="background: white; color: #593C28;">&rarr;</a>
+            {% endif %}
+        </div>
         {% endif %}
 
     {% else %}
-        <div class="text-center py-5 bg-white rounded shadow-sm border">
-            <div class="mb-3 fs-1">🥖</div>
-            <h3 class="text-brown">Je hebt nog geen bestellingen.</h3>
-            
+        <div class="empty-cart-container">
+            <h3>Je hebt nog geen bestellingen geplaatst.</h3>
             {% if filters.date or filters.product or filters.price %}
-                <p class="text-muted">Geen resultaten gevonden voor je filters.</p>
-                <a href="{{ url_for('main.my_orders') }}" class="btn btn-outline-danger">Filters wissen</a>
+                <p>Geen resultaten voor je zoekopdracht.</p>
+                <a href="{{ url_for('main.my_orders') }}" class="btn-bestel" style="background: #E63946;">Filters wissen</a>
             {% else %}
-                <p class="text-muted">Heb je honger? Neem snel een kijkje in ons assortiment!</p>
-                <a href="{{ url_for('main.index') }}" class="btn btn-primary px-4 rounded-pill">Naar de Winkel</a>
+                <p>Heb je honger? Neem snel een kijkje in ons assortiment!</p>
+                <a href="{{ url_for('main.index') }}" class="btn-bestel">Naar de winkel</a>
             {% endif %}
         </div>
     {% endif %}
 </div>
 
-<style>
-    .page-link.bg-brown { background-color: #593C28 !important; border-color: #593C28 !important; color: white !important; }
-    .page-link.text-brown { color: #593C28; }
-    .page-link:hover { color: #4a3222; }
-</style>
+<script>
+    function toggleFilters() {
+        var menu = document.getElementById('filterMenu');
+        menu.classList.toggle('hidden');
+    }
+</script>
 {% endblock %}

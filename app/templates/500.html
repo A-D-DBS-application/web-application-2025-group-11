@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container" style="text-align: center; margin-top: 100px; margin-bottom: 100px;">
+    <h1 style="font-size: 6rem; color: #593C28; margin-bottom: 0;">500</h1>
+    <h2 style="color: #E63946; margin-top: 0;">Server Fout</h2>
+    <p style="color: #666; font-size: 1.2em; margin: 20px 0;">
+        Er ging iets mis in onze keuken.<br>
+        Onze tech-bakkers zijn op de hoogte gebracht!
+    </p>
+    
+    <a href="{{ url_for('main.index') }}" class="btn-bestel" style="display: inline-block; padding: 12px 30px; text-decoration: none;">
+        Probeer opnieuw
+    </a>
+</div>
+{% endblock %}

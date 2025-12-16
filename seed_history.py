@@ -54,7 +54,7 @@ def get_product_weight(product, d):
     cat = product.category.lower() if product.category else ""
     weekday = d.weekday()
 
-    if 'pistole' in cat:
+    if 'pistolet' in cat:
         if weekday >= 5: weight *= 4 
     elif 'koffiekoeken' in cat:
         if weekday == 6: weight *= 3
@@ -203,7 +203,7 @@ def run_history_seeder():
                 for prod in chosen_prods:
                     qty = 1
                     cat = prod.category.lower() if prod.category else ""
-                    if 'pistole' in cat: qty = random.choice([4, 6, 8, 10])
+                    if 'pistolet' in cat: qty = random.choice([4, 6, 8, 10])
                     elif 'koffiekoeken' in cat: qty = random.choice([2, 4])
                     else: qty = random.choice([1, 1, 2])
                     

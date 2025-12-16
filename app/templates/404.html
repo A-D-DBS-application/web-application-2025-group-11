@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container" style="text-align: center; margin-top: 100px; margin-bottom: 100px;">
+    <h1 style="font-size: 6rem; color: #E63946; margin-bottom: 0;">404</h1>
+    <h2 style="color: #593C28; margin-top: 0;">Oeps! Dit broodje is aangebrand.</h2>
+    <p style="color: #666; font-size: 1.2em; margin: 20px 0;">
+        De pagina die je zoekt bestaat niet (meer).<br>
+    </p>
+    
+    <a href="{{ url_for('main.index') }}" class="btn-bestel" style="display: inline-block; padding: 12px 30px; text-decoration: none;">
+        Terug naar de Homepagina
+    </a>
+</div>
+{% endblock %}
