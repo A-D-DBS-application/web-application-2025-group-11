@@ -20,17 +20,17 @@ link user stories: marie
 
 Render link:
 https://web-application-2025-group-11.onrender.com/
-Handover link: [MVP Handover.docx - ondertekend.pdf](https://github.com/user-attachments/files/24141357/MVP.Handover.docx.-.ondertekend.pdf)
-link feedback 1: https://1drv.ms/v/c/c136e9b2e93ec364/IQDAFJ0v94InS4P4ByIwaH2xAQfUjv8RCSBrZNJejuMsIX0
-link feedback 2:https://www.loom.com/share/094ce117342b42a197b07dffe20f7bff
 
-Jasper Render laten gebruiken met Loom
+Handover link: 
+[MVP Handover.docx - ondertekend.pdf](https://github.com/user-attachments/files/24141357/MVP.Handover.docx.-.ondertekend.pdf)
+link feedback 1:
+https://1drv.ms/v/c/c136e9b2e93ec364/IQDAFJ0v94InS4P4ByIwaH2xAQfUjv8RCSBrZNJejuMsIX0?e=0p75ne
+link feedback 2:
+https://www.loom.com/share/094ce117342b42a197b07dffe20f7bff
 
-bootstrap testen;Roel
 
 run reset_orders en daarna seed_history voor demo begint: Alehan
 demo filmpje: Alehan
-fotos toevoegen: Alehan
 
 excel import: Emile
 
