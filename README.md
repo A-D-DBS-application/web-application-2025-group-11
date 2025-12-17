@@ -28,6 +28,9 @@ https://1drv.ms/v/c/c136e9b2e93ec364/IQDAFJ0v94InS4P4ByIwaH2xAQfUjv8RCSBrZNJejuM
 link feedback 2:
 https://www.loom.com/share/094ce117342b42a197b07dffe20f7bff
 
+Jasper Render laten gebruiken met Loom
+
+bootstrap testen;Roel
 
 run reset_orders en daarna seed_history voor demo begint: Alehan
 demo filmpje: Alehan
