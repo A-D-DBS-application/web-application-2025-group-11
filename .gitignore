@@ -5,7 +5,7 @@ venv/
 __pycache__/
 *.py[cod]
 
-# Omgevingsvariabelen (als je die later gebruikt)
+# Omgevingsvariabelen 
 .env
 
 # VS Code instellingen (optioneel, vaak handig om lokaal te houden)
