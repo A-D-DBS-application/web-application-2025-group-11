@@ -131,13 +131,15 @@ def inject_global_vars():
 
 @main.app_errorhandler(404)
 def page_not_found(e):
-    return render_template('404.html'), 404
+    settings = get_settings()
+    return render_template('404.html', settings=settings), 404
 
 @main.app_errorhandler(500)
 def internal_server_error(e):
+    settings = get_settings()
     print(f"🔥 500 ERROR: {e}")
     db.session.rollback()
-    return render_template('500.html'), 500
+    return render_template('500.html', settings=settings), 500
 
 
 # ==============================================================================
