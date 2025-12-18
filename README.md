@@ -24,7 +24,35 @@ Hand-off:
 Bij het overdragen van de applicatie kan de partner het script reset_complete.py runnen, zodat de website helemaal leeg is (geen fictieve orders en producten meer). Op deze manier kan hij met een lege website beginnen en zelf al zijn producten toevoegen.
 Het Profiel "winkelverkoop" is het profiel dat aan de kassa gelinkt moet worden bij deployment van de app. Om dit profiel over te zetten mag het oude profiel verwijderd worden uit de database (nu onder mail: emile.debourdeaudhuy+kassa@gmail.com) (dit gebeurt ook automatisch bij het runnen van reset_complete.py). Het is heel belangrijk dat er een profiel met de naam "Winkelverkoop" verbonden is aan de kassa omdat het algoritme hier naar kijkt voor de voorspelling van de verkoop in de winkel zelf (het email-adres maakt hiervoor niet zo uit, maar het moet wel een bestaan adres zijn om de mail te bevestigen).
 
+# Installatie & Gebruiksinstructies
 
+Volg onderstaande stappen om de Flask-applicatie lokaal te installeren en te configureren.
+
+## 1. Omgeving opzetten
+Open je terminal (of Git Bash) en voer de volgende commando's uit:
+
+```bash
+# Project downloaden
+git clone https://github.com/A-D-DBS-application/web-application-2025-group-11.git
+cd web-application-2025-group-11
+
+# Virtuele omgeving aanmaken
+python -m venv venv
+
+# Activeren (Windows)
+venv\Scripts\activate
+# Activeren (macOS/Linux)
+source venv/bin/activate
+
+# Afhankelijkheden installeren
+pip install -r requirements.txt
+
+# Voer de seed-scripts uit om de tabellen te vullen met de benodigde data voor de bakkerij:
+python data_generations/seed_recipes.py
+python data_generations/seed_history.py
+
+# App starten
+python run.py
 
 
 
