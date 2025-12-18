@@ -18,7 +18,7 @@ wachtwoord: mathis
 
 Figma protoype: https://www.figma.com/proto/eqcr3J30jhTZHAwjNnOGV8/Project-A-D?node-id=0-1&t=LtArySwhaOy5cONU-1, vanuit dit protype zijn we vertrokken voor het maken van onze website. Hoewel het toch wel verschilt van hoe onze website er nu uit ziet heeft dit toch de basis gevormd.
 
-Screenshots/images of UI: zie render link (map Deliverables)
+Screenshots/images of UI: zie deliverables
 
 Hand-off: 
 Bij het overdragen van de applicatie kan de partner het script reset_complete.py runnen, zodat de website helemaal leeg is (geen fictieve orders en producten meer). Op deze manier kan hij met een lege website beginnen en zelf al zijn producten toevoegen.
