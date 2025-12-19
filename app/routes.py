@@ -15,7 +15,7 @@ from icalendar import Calendar, Event
 from .models import Product, Profile, Order, OrderItem, Ingredient, ProductIngredient, AppSettings, db
 # Importeer Supabase authenticatie
 from . import supabase
-# Importeer je AI functie
+# Importeer Algoritmen
 from .analytics import generate_smart_forecast
 from .analytics import get_cart_recommendations
 
@@ -74,22 +74,18 @@ def upload_image_to_supabase(file):
         return None
 
 # --- ADMIN DECORATOR ---
-# Dit vervangt de check_admin() functie en maakt de routes schoner.
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        # 1. Is er een user ingelogd?
         if 'user_id' not in session:
             flash('Je moet inloggen om deze pagina te bekijken.', 'warning')
             return redirect(url_for('main.login'))
         
-        # 2. Is de user een admin?
         user = Profile.query.get(session['user_id'])
         if not user or not user.is_admin:
             flash('Geen toegang: Alleen voor beheerders.', 'danger')
             return redirect(url_for('main.index'))
-            
-        # 3. Alles oké? Voer de originele functie uit
+           
         return f(*args, **kwargs)
     return decorated_function
 

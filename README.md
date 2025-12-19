@@ -6,6 +6,7 @@ De applicatie werkt perfect voor ipad en computer (2 devices), de interface voor
 email: mathisdebaene@gmail.com
 wachtwoord: mathis
 
+Als er zelf een account aangemaakt wordt is het belangrijk dat je bevestigd via de mail die je van supabase krijgt.
 
 ## Demo & Feedback
 Omdat de videobestanden te groot zijn voor GitHub, kunt u ze hier bekijken:
@@ -16,7 +17,17 @@ Omdat de videobestanden te groot zijn voor GitHub, kunt u ze hier bekijken:
 https://www.figma.com/proto/eqcr3J30jhTZHAwjNnOGV8/Project-A-D?node-id=0-1&t=LtArySwhaOy5cONU-1, 
 vanuit dit protype zijn we vertrokken voor het maken van onze website. Hoewel het toch wel verschilt van hoe onze website er nu uit ziet heeft dit toch de basis gevormd.
 
-# Screenshots/images of UI: zie deliverables
+# Zie mapje Deliverables voor:
+Screenshots/images of UI
+(E)ER model
+database dump
+DDL model
+ERD model
+Feedback
+Handover
+Presentatie
+Render link
+User stories
 
 # Hand-off: 
 Bij het overdragen van de applicatie kan de partner het script reset_complete.py runnen, zodat de website helemaal leeg is (geen fictieve orders en producten meer). Op deze manier kan hij met een lege website beginnen en zelf al zijn producten toevoegen.

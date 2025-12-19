@@ -403,7 +403,7 @@ def get_cart_recommendations(current_cart_ids):
         elif prod.category == 'brood':
             score -= 1
 
-        # D. SEIZOENS-BOOST (+5) (NIEUW!)
+        # D. SEIZOENS-BOOST (+4) (NIEUW!)
         # Als het product specifieke datums heeft (dus geen 'altijd beschikbaar' product),
         # en het door de check hierboven is gekomen, dan is het een "Special".
         # Mensen kopen specials graag als extraatje.
