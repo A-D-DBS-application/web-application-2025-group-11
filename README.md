@@ -12,6 +12,7 @@ Als er zelf een account aangemaakt wordt is het belangrijk dat je bevestigd via 
 Omdat de videobestanden te groot zijn voor GitHub, kunt u ze hier bekijken:
 -  [Bekijk de Website Demo Video](https://youtu.be/HWTVO1ROrOA)
 -  [Bekijk de Feedback Video](https://youtu.be/x3BVNgIQb6E)
+-  [Bekijk de Tweede Feedback Video](https://www.loom.com/share/094ce117342b42a197b07dffe20f7bff)
 
 # Figma protoype: 
 https://www.figma.com/proto/eqcr3J30jhTZHAwjNnOGV8/Project-A-D?node-id=0-1&t=LtArySwhaOy5cONU-1, 
