@@ -7,6 +7,11 @@ email: mathisdebaene@gmail.com
 wachtwoord: mathis
 
 
+## Demo & Feedback
+Omdat de videobestanden te groot zijn voor GitHub, kunt u ze hier bekijken:
+-  [Bekijk de Website Demo Video](https://youtu.be/HWTVO1ROrOA)
+-  [Bekijk de Feedback Video](https://youtu.be/x3BVNgIQb6E)
+
 # Figma protoype: 
 https://www.figma.com/proto/eqcr3J30jhTZHAwjNnOGV8/Project-A-D?node-id=0-1&t=LtArySwhaOy5cONU-1, 
 vanuit dit protype zijn we vertrokken voor het maken van onze website. Hoewel het toch wel verschilt van hoe onze website er nu uit ziet heeft dit toch de basis gevormd.
@@ -23,7 +28,7 @@ Het is heel belangrijk dat er een profiel met de naam "Winkelverkoop" verbonden 
 
 Volg onderstaande stappen om de Flask-applicatie lokaal te installeren en te configureren.
 
-# 1. Omgeving opzetten
+## 1. Omgeving opzetten
 Open je terminal (of Git Bash) en voer de volgende commando's uit:
 
 ```bash
